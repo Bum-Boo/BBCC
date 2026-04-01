@@ -128,6 +128,10 @@ class MapperService(QObject):
         self._emit_snapshot()
         self._timer.start(self._poll_interval_ms)
 
+    @property
+    def normalizer(self) -> InputNormalizer:
+        return self._normalizer
+
     def stop(self) -> None:
         self._timer.stop()
         self._output.release_all()

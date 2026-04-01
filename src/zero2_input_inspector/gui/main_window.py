@@ -662,15 +662,36 @@ class MainWindow(QMainWindow):
             )
             self._controller_diagram.set_active_controls(active_controls)
         else:
-            self._diagram_note.setText(self._service.tr("unknown_layout_unavailable"))
+            resolved_family = self._service.normalizer.describe_saved_device(selected_device)
+            template = resolved_family.template
+            if template.family_id == "unknown_controller":
+                note_key = "unknown_layout_unavailable"
+                presentation_kind = "unknown"
+                control_labels = {}
+                visible_controls = ()
+                has_exact_diagram = False
+                placeholder_title = self._service.tr("unmapped_diagram_title")
+                placeholder_body = self._service.tr("unmapped_diagram_body")
+            else:
+                note_key = {
+                    "zero2": "zero2_exact",
+                    "xbox": "xbox_exact",
+                }.get(template.diagram_kind, "generic_layout")
+                presentation_kind = template.diagram_kind
+                control_labels = dict(template.control_labels)
+                visible_controls = template.visible_controls
+                has_exact_diagram = template.has_exact_diagram
+                placeholder_title = ""
+                placeholder_body = ""
+            self._diagram_note.setText(self._service.tr(note_key))
             self._controller_subtitle.setText(selected_device.last_seen_name or selected_device.display_name)
             self._controller_diagram.set_presentation(
-                "unknown",
-                {},
-                (),
-                False,
-                self._service.tr("unmapped_diagram_title"),
-                self._service.tr("unmapped_diagram_body"),
+                presentation_kind,
+                control_labels,
+                visible_controls,
+                has_exact_diagram,
+                placeholder_title,
+                placeholder_body,
             )
             self._controller_diagram.set_active_controls(set())
 

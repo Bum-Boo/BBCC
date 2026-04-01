@@ -56,7 +56,7 @@ class ControllerDiagramWidget(QWidget):
         self._has_exact_diagram = has_exact_diagram
         self._placeholder_title = placeholder_title
         self._placeholder_body = placeholder_body
-        self._diagram_layout = load_diagram_layout(diagram_kind) if has_exact_diagram else None
+        self._diagram_layout = load_diagram_layout(diagram_kind)
         self.update()
 
     def set_active_controls(self, controls: Set[str]) -> None:
@@ -96,7 +96,7 @@ class ControllerDiagramWidget(QWidget):
             if canvas.width() <= 0 or canvas.height() <= 0:
                 return
 
-            if self._diagram_layout is None or not self._has_exact_diagram:
+            if self._diagram_layout is None:
                 self._paint_unknown_panel(painter, canvas)
                 return
 

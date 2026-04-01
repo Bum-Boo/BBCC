@@ -119,6 +119,43 @@ def _xbox_layout() -> DiagramLayout:
     )
 
 
+def _generic_layout() -> DiagramLayout:
+    body = _rounded_rect_path(150, 120, 700, 290, 144)
+    controls = {
+        L: _rounded_rect_path(164, 82, 174, 34, 16),
+        R: _rounded_rect_path(662, 82, 174, 34, 16),
+        LEFT_TRIGGER: _rounded_rect_path(156, 48, 168, 24, 12),
+        RIGHT_TRIGGER: _rounded_rect_path(676, 48, 168, 24, 12),
+        SELECT: _rounded_rect_path(428, 212, 58, 24, 12),
+        START: _rounded_rect_path(514, 212, 58, 24, 12),
+        GUIDE: _ellipse_path(462, 158, 76, 76),
+        LEFT_STICK_PRESS: _ellipse_path(268, 286, 38, 38),
+        LEFT_STICK_UP: _rounded_rect_path(262, 244, 50, 24, 10),
+        LEFT_STICK_LEFT: _rounded_rect_path(220, 286, 50, 24, 10),
+        LEFT_STICK_DOWN: _rounded_rect_path(262, 328, 50, 24, 10),
+        LEFT_STICK_RIGHT: _rounded_rect_path(304, 286, 50, 24, 10),
+        RIGHT_STICK_PRESS: _ellipse_path(630, 334, 38, 38),
+        RIGHT_STICK_UP: _rounded_rect_path(624, 292, 50, 24, 10),
+        RIGHT_STICK_LEFT: _rounded_rect_path(582, 334, 50, 24, 10),
+        RIGHT_STICK_DOWN: _rounded_rect_path(624, 376, 50, 24, 10),
+        RIGHT_STICK_RIGHT: _rounded_rect_path(666, 334, 50, 24, 10),
+        DPAD_UP: _rounded_rect_path(184, 302, 70, 32, 14),
+        DPAD_LEFT: _rounded_rect_path(148, 338, 70, 32, 14),
+        DPAD_DOWN: _rounded_rect_path(184, 374, 70, 32, 14),
+        DPAD_RIGHT: _rounded_rect_path(220, 338, 70, 32, 14),
+        FACE_NORTH: _ellipse_path(738, 282, 44, 44),
+        FACE_WEST: _ellipse_path(694, 326, 44, 44),
+        FACE_SOUTH: _ellipse_path(738, 370, 44, 44),
+        FACE_EAST: _ellipse_path(782, 326, 44, 44),
+    }
+    return DiagramLayout(
+        diagram_kind="generic",
+        view_box=DEFAULT_VIEWBOX,
+        body_path=body,
+        control_paths=controls,
+    )
+
+
 @lru_cache(maxsize=None)
 def load_diagram_layout(diagram_kind: str) -> Optional[DiagramLayout]:
     normalized_kind = (diagram_kind or "").strip().lower()
@@ -126,4 +163,6 @@ def load_diagram_layout(diagram_kind: str) -> Optional[DiagramLayout]:
         return _zero2_layout()
     if normalized_kind == "xbox":
         return _xbox_layout()
+    if normalized_kind == "generic":
+        return _generic_layout()
     return None
