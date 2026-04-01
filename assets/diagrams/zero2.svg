@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" fill="none">
+  <defs>
+    <linearGradient id="bodyFill" x1="500" y1="108" x2="500" y2="452" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#EDF3FB"/>
+    </linearGradient>
+    <linearGradient id="controlFill" x1="0" y1="0" x2="0" y2="1" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E7EDF6"/>
+    </linearGradient>
+    <linearGradient id="controlDarkFill" x1="0" y1="0" x2="0" y2="1" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FDFEFF"/>
+      <stop offset="1" stop-color="#DEE7F2"/>
+    </linearGradient>
+  </defs>
+
+  <g id="body">
+    <rect x="132" y="110" width="736" height="340" rx="150" fill="url(#bodyFill)" stroke="#B7C7DB" stroke-width="2"/>
+    <ellipse cx="164" cy="280" rx="114" ry="142" fill="#F8FBFF"/>
+    <ellipse cx="836" cy="280" rx="114" ry="142" fill="#F8FBFF"/>
+    <rect x="258" y="222" width="484" height="138" rx="69" fill="#F4F8FD" opacity="0.96"/>
+    <rect x="304" y="128" width="392" height="10" rx="5" fill="#EAF1F9"/>
+  </g>
+
+  <g id="zero2-l">
+    <rect x="150" y="68" width="126" height="28" rx="14" fill="url(#controlDarkFill)" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+  <g id="zero2-r">
+    <rect x="724" y="68" width="126" height="28" rx="14" fill="url(#controlDarkFill)" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+
+  <g id="zero2-dpad-up">
+    <rect x="205" y="208" width="62" height="72" rx="14" fill="url(#controlFill)" stroke="#A7B8D1" stroke-width="1.5"/>
+  </g>
+  <g id="zero2-dpad-down">
+    <rect x="205" y="280" width="62" height="72" rx="14" fill="url(#controlFill)" stroke="#A7B8D1" stroke-width="1.5"/>
+  </g>
+  <g id="zero2-dpad-left">
+    <rect x="151" y="254" width="72" height="62" rx="14" fill="url(#controlFill)" stroke="#A7B8D1" stroke-width="1.5"/>
+  </g>
+  <g id="zero2-dpad-right">
+    <rect x="247" y="254" width="72" height="62" rx="14" fill="url(#controlFill)" stroke="#A7B8D1" stroke-width="1.5"/>
+  </g>
+
+  <g id="zero2-face-north">
+    <circle cx="768" cy="214" r="30" fill="url(#controlFill)" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+  <g id="zero2-face-west">
+    <circle cx="710" cy="272" r="30" fill="url(#controlFill)" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+  <g id="zero2-face-south">
+    <circle cx="768" cy="330" r="30" fill="url(#controlFill)" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+  <g id="zero2-face-east">
+    <circle cx="826" cy="272" r="30" fill="url(#controlFill)" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+
+  <g id="zero2-select">
+    <rect x="452" y="328" width="54" height="24" rx="12" fill="url(#controlDarkFill)" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+  <g id="zero2-start">
+    <rect x="506" y="328" width="54" height="24" rx="12" fill="url(#controlDarkFill)" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+</svg>

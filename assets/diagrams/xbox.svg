@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" fill="none">
+  <defs>
+    <linearGradient id="bodyFill" x1="500" y1="104" x2="500" y2="456" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#EDF3FB"/>
+    </linearGradient>
+    <linearGradient id="controlFill" x1="0" y1="0" x2="0" y2="1" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E5ECF6"/>
+    </linearGradient>
+    <linearGradient id="darkControlFill" x1="0" y1="0" x2="0" y2="1" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FDFEFF"/>
+      <stop offset="1" stop-color="#DCE6F1"/>
+    </linearGradient>
+    <linearGradient id="guideFill" x1="0" y1="0" x2="0" y2="1" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E9F4EE"/>
+    </linearGradient>
+  </defs>
+
+  <g id="body">
+    <rect x="132" y="112" width="736" height="338" rx="148" fill="url(#bodyFill)" stroke="#B4C3D6" stroke-width="2"/>
+    <ellipse cx="160" cy="288" rx="110" ry="142" fill="#F8FBFF"/>
+    <ellipse cx="840" cy="288" rx="110" ry="142" fill="#F8FBFF"/>
+    <rect x="296" y="122" width="408" height="12" rx="6" fill="#E6EDF7"/>
+    <rect x="278" y="228" width="444" height="120" rx="60" fill="#F5F9FE" opacity="0.94"/>
+  </g>
+
+  <g id="xbox-lt">
+    <rect x="148" y="54" width="166" height="28" rx="10" fill="url(#darkControlFill)" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+  <g id="xbox-rt">
+    <rect x="686" y="54" width="166" height="28" rx="10" fill="url(#darkControlFill)" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+
+  <g id="xbox-lb">
+    <rect x="144" y="80" width="176" height="30" rx="12" fill="url(#darkControlFill)" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+  <g id="xbox-rb">
+    <rect x="680" y="80" width="176" height="30" rx="12" fill="url(#darkControlFill)" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+
+  <g id="xbox-left-stick">
+    <circle cx="324" cy="272" r="48" fill="url(#controlFill)" stroke="#A7B8D1" stroke-width="1.5"/>
+  </g>
+  <g id="xbox-left-stick-up">
+    <rect x="308" y="198" width="32" height="42" rx="12" fill="url(#controlFill)" stroke="#A7B8D1" stroke-width="1.5"/>
+  </g>
+  <g id="xbox-left-stick-down">
+    <rect x="308" y="304" width="32" height="42" rx="12" fill="url(#controlFill)" stroke="#A7B8D1" stroke-width="1.5"/>
+  </g>
+  <g id="xbox-left-stick-left">
+    <rect x="248" y="256" width="42" height="32" rx="12" fill="url(#controlFill)" stroke="#A7B8D1" stroke-width="1.5"/>
+  </g>
+  <g id="xbox-left-stick-right">
+    <rect x="358" y="256" width="42" height="32" rx="12" fill="url(#controlFill)" stroke="#A7B8D1" stroke-width="1.5"/>
+  </g>
+  <g id="xbox-left-stick-press">
+    <circle cx="324" cy="272" r="18" fill="#DDE8F5" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+
+  <g id="xbox-right-stick">
+    <circle cx="610" cy="326" r="48" fill="url(#controlFill)" stroke="#A7B8D1" stroke-width="1.5"/>
+  </g>
+  <g id="xbox-right-stick-up">
+    <rect x="594" y="252" width="32" height="42" rx="12" fill="url(#controlFill)" stroke="#A7B8D1" stroke-width="1.5"/>
+  </g>
+  <g id="xbox-right-stick-down">
+    <rect x="594" y="358" width="32" height="42" rx="12" fill="url(#controlFill)" stroke="#A7B8D1" stroke-width="1.5"/>
+  </g>
+  <g id="xbox-right-stick-left">
+    <rect x="534" y="310" width="42" height="32" rx="12" fill="url(#controlFill)" stroke="#A7B8D1" stroke-width="1.5"/>
+  </g>
+  <g id="xbox-right-stick-right">
+    <rect x="644" y="310" width="42" height="32" rx="12" fill="url(#controlFill)" stroke="#A7B8D1" stroke-width="1.5"/>
+  </g>
+  <g id="xbox-right-stick-press">
+    <circle cx="610" cy="326" r="18" fill="#DDE8F5" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+
+  <g id="xbox-dpad-up">
+    <rect x="206" y="238" width="60" height="72" rx="14" fill="url(#controlFill)" stroke="#A7B8D1" stroke-width="1.5"/>
+  </g>
+  <g id="xbox-dpad-down">
+    <rect x="206" y="342" width="60" height="72" rx="14" fill="url(#controlFill)" stroke="#A7B8D1" stroke-width="1.5"/>
+  </g>
+  <g id="xbox-dpad-left">
+    <rect x="152" y="294" width="72" height="60" rx="14" fill="url(#controlFill)" stroke="#A7B8D1" stroke-width="1.5"/>
+  </g>
+  <g id="xbox-dpad-right">
+    <rect x="246" y="294" width="72" height="60" rx="14" fill="url(#controlFill)" stroke="#A7B8D1" stroke-width="1.5"/>
+  </g>
+
+  <g id="xbox-face-north">
+    <circle cx="764" cy="200" r="28" fill="url(#controlFill)" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+  <g id="xbox-face-west">
+    <circle cx="706" cy="258" r="28" fill="url(#controlFill)" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+  <g id="xbox-face-south">
+    <circle cx="764" cy="316" r="28" fill="url(#controlFill)" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+  <g id="xbox-face-east">
+    <circle cx="822" cy="258" r="28" fill="url(#controlFill)" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+
+  <g id="xbox-view">
+    <rect x="452" y="236" width="44" height="20" rx="10" fill="url(#darkControlFill)" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+  <g id="xbox-menu">
+    <rect x="504" y="236" width="44" height="20" rx="10" fill="url(#darkControlFill)" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+  <g id="xbox-guide">
+    <circle cx="500" cy="208" r="34" fill="url(#guideFill)" stroke="#9FB4D3" stroke-width="1.5"/>
+  </g>
+</svg>

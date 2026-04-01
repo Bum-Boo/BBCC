@@ -1,0 +1,105 @@
+{
+  "viewBox": [0, 0, 1000, 560],
+  "controls": {
+    "LEFT_TRIGGER": {
+      "node": "xbox-lt",
+      "hit": { "type": "roundRect", "rect": [148, 54, 166, 28], "radius": 10 }
+    },
+    "RIGHT_TRIGGER": {
+      "node": "xbox-rt",
+      "hit": { "type": "roundRect", "rect": [686, 54, 166, 28], "radius": 10 }
+    },
+    "L": {
+      "node": "xbox-lb",
+      "hit": { "type": "roundRect", "rect": [144, 80, 176, 30], "radius": 12 }
+    },
+    "R": {
+      "node": "xbox-rb",
+      "hit": { "type": "roundRect", "rect": [680, 80, 176, 30], "radius": 12 }
+    },
+    "LEFT_STICK_UP": {
+      "node": "xbox-left-stick-up",
+      "hit": { "type": "roundRect", "rect": [308, 198, 32, 42], "radius": 12 }
+    },
+    "LEFT_STICK_DOWN": {
+      "node": "xbox-left-stick-down",
+      "hit": { "type": "roundRect", "rect": [308, 304, 32, 42], "radius": 12 }
+    },
+    "LEFT_STICK_LEFT": {
+      "node": "xbox-left-stick-left",
+      "hit": { "type": "roundRect", "rect": [248, 256, 42, 32], "radius": 12 }
+    },
+    "LEFT_STICK_RIGHT": {
+      "node": "xbox-left-stick-right",
+      "hit": { "type": "roundRect", "rect": [358, 256, 42, 32], "radius": 12 }
+    },
+    "LEFT_STICK_PRESS": {
+      "node": "xbox-left-stick-press",
+      "hit": { "type": "ellipse", "rect": [306, 254, 36, 36] }
+    },
+    "RIGHT_STICK_UP": {
+      "node": "xbox-right-stick-up",
+      "hit": { "type": "roundRect", "rect": [594, 252, 32, 42], "radius": 12 }
+    },
+    "RIGHT_STICK_DOWN": {
+      "node": "xbox-right-stick-down",
+      "hit": { "type": "roundRect", "rect": [594, 358, 32, 42], "radius": 12 }
+    },
+    "RIGHT_STICK_LEFT": {
+      "node": "xbox-right-stick-left",
+      "hit": { "type": "roundRect", "rect": [534, 310, 42, 32], "radius": 12 }
+    },
+    "RIGHT_STICK_RIGHT": {
+      "node": "xbox-right-stick-right",
+      "hit": { "type": "roundRect", "rect": [644, 310, 42, 32], "radius": 12 }
+    },
+    "RIGHT_STICK_PRESS": {
+      "node": "xbox-right-stick-press",
+      "hit": { "type": "ellipse", "rect": [592, 308, 36, 36] }
+    },
+    "DPAD_UP": {
+      "node": "xbox-dpad-up",
+      "hit": { "type": "roundRect", "rect": [206, 238, 60, 72], "radius": 14 }
+    },
+    "DPAD_DOWN": {
+      "node": "xbox-dpad-down",
+      "hit": { "type": "roundRect", "rect": [206, 342, 60, 72], "radius": 14 }
+    },
+    "DPAD_LEFT": {
+      "node": "xbox-dpad-left",
+      "hit": { "type": "roundRect", "rect": [152, 294, 72, 60], "radius": 14 }
+    },
+    "DPAD_RIGHT": {
+      "node": "xbox-dpad-right",
+      "hit": { "type": "roundRect", "rect": [246, 294, 72, 60], "radius": 14 }
+    },
+    "FACE_NORTH": {
+      "node": "xbox-face-north",
+      "hit": { "type": "ellipse", "rect": [736, 172, 56, 56] }
+    },
+    "FACE_WEST": {
+      "node": "xbox-face-west",
+      "hit": { "type": "ellipse", "rect": [678, 230, 56, 56] }
+    },
+    "FACE_SOUTH": {
+      "node": "xbox-face-south",
+      "hit": { "type": "ellipse", "rect": [736, 288, 56, 56] }
+    },
+    "FACE_EAST": {
+      "node": "xbox-face-east",
+      "hit": { "type": "ellipse", "rect": [794, 230, 56, 56] }
+    },
+    "SELECT": {
+      "node": "xbox-view",
+      "hit": { "type": "roundRect", "rect": [452, 236, 44, 20], "radius": 10 }
+    },
+    "START": {
+      "node": "xbox-menu",
+      "hit": { "type": "roundRect", "rect": [504, 236, 44, 20], "radius": 10 }
+    },
+    "GUIDE": {
+      "node": "xbox-guide",
+      "hit": { "type": "ellipse", "rect": [466, 174, 68, 68] }
+    }
+  }
+}

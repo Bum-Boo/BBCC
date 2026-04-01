@@ -1,0 +1,53 @@
+{
+  "viewBox": [0, 0, 1000, 560],
+  "controls": {
+    "L": {
+      "node": "zero2-l",
+      "hit": { "type": "roundRect", "rect": [150, 68, 126, 28], "radius": 14 }
+    },
+    "R": {
+      "node": "zero2-r",
+      "hit": { "type": "roundRect", "rect": [724, 68, 126, 28], "radius": 14 }
+    },
+    "DPAD_UP": {
+      "node": "zero2-dpad-up",
+      "hit": { "type": "roundRect", "rect": [205, 208, 62, 72], "radius": 14 }
+    },
+    "DPAD_DOWN": {
+      "node": "zero2-dpad-down",
+      "hit": { "type": "roundRect", "rect": [205, 280, 62, 72], "radius": 14 }
+    },
+    "DPAD_LEFT": {
+      "node": "zero2-dpad-left",
+      "hit": { "type": "roundRect", "rect": [151, 254, 72, 62], "radius": 14 }
+    },
+    "DPAD_RIGHT": {
+      "node": "zero2-dpad-right",
+      "hit": { "type": "roundRect", "rect": [247, 254, 72, 62], "radius": 14 }
+    },
+    "FACE_NORTH": {
+      "node": "zero2-face-north",
+      "hit": { "type": "ellipse", "rect": [738, 184, 60, 60] }
+    },
+    "FACE_WEST": {
+      "node": "zero2-face-west",
+      "hit": { "type": "ellipse", "rect": [680, 242, 60, 60] }
+    },
+    "FACE_SOUTH": {
+      "node": "zero2-face-south",
+      "hit": { "type": "ellipse", "rect": [738, 300, 60, 60] }
+    },
+    "FACE_EAST": {
+      "node": "zero2-face-east",
+      "hit": { "type": "ellipse", "rect": [796, 242, 60, 60] }
+    },
+    "SELECT": {
+      "node": "zero2-select",
+      "hit": { "type": "roundRect", "rect": [452, 328, 54, 24], "radius": 12 }
+    },
+    "START": {
+      "node": "zero2-start",
+      "hit": { "type": "roundRect", "rect": [506, 328, 54, 24], "radius": 12 }
+    }
+  }
+}
