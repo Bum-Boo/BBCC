@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from collections import deque
+from copy import deepcopy
 from datetime import datetime
+from time import monotonic
 from typing import Deque, Dict, List, Optional, Set, Tuple
 
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal
@@ -14,6 +16,11 @@ from ..domain.controls import (
     LEFT_STICK_LEFT,
     LEFT_STICK_RIGHT,
     LEFT_STICK_UP,
+    RIGHT_STICK_EFFECTIVE_DOWN,
+    RIGHT_STICK_EFFECTIVE_LEFT,
+    RIGHT_STICK_EFFECTIVE_RIGHT,
+    RIGHT_STICK_EFFECTIVE_UP,
+    RIGHT_STICK_MODE,
     RIGHT_STICK_DOWN,
     RIGHT_STICK_LEFT,
     RIGHT_STICK_RIGHT,
@@ -45,8 +52,16 @@ from ..domain.profiles import (
     MAPPING_ACTION_MOUSE_WHEEL_LEFT,
     MAPPING_ACTION_MOUSE_WHEEL_RIGHT,
     MAPPING_ACTION_MOUSE_WHEEL_UP,
+    MAPPING_ACTION_STICK_MODE,
+    RIGHT_STICK_MODE_CONTINUOUS_SCROLL,
+    RIGHT_STICK_MODE_CUSTOM_ADVANCED,
+    RIGHT_STICK_MODE_DISABLED,
+    RIGHT_STICK_MODE_MOUSE_MOVE,
+    RIGHT_STICK_MODE_WHEEL_STEP_4WAY,
+    RIGHT_STICK_MODE_WHEEL_STEP_VERTICAL,
     is_media_fallback_profile,
     normalize_mapping_action_kind,
+    normalize_right_stick_mode,
 )
 from ..domain.state import DeviceListEntry, MappingRow, NormalizedControllerState, UiSnapshot
 from ..identity import DEFAULT_FALLBACK_PROFILE_NAME
@@ -64,6 +79,12 @@ ANALOG_MOUSE_BASE_PIXELS_PER_TICK = 18.0
 ANALOG_SCROLL_BASE_UNITS_PER_TICK = 1.0
 ANALOG_DEFAULT_CURVE = 1.7
 ANALOG_DEFAULT_SCROLL_CURVE = 1.45
+SINGLE_FIRE_COOLDOWN_SECONDS = 0.18
+WHEEL_REPEAT_INTERVAL_SECONDS = 0.14
+RIGHT_STICK_IDLE_BASELINE_MAX = 0.18
+RIGHT_STICK_BASELINE_UPDATE_ALPHA = 0.2
+RIGHT_STICK_WHEEL_DOMINANCE_MARGIN = 0.08
+RIGHT_STICK_NEUTRAL_LATCH_SECONDS = 0.12
 LEFT_STICK_DIRECTION_CONTROLS = (
     LEFT_STICK_LEFT,
     LEFT_STICK_RIGHT,
@@ -76,6 +97,12 @@ RIGHT_STICK_DIRECTION_CONTROLS = (
     RIGHT_STICK_UP,
     RIGHT_STICK_DOWN,
 )
+RIGHT_STICK_EFFECTIVE_ROWS = {
+    RIGHT_STICK_UP: RIGHT_STICK_EFFECTIVE_UP,
+    RIGHT_STICK_DOWN: RIGHT_STICK_EFFECTIVE_DOWN,
+    RIGHT_STICK_LEFT: RIGHT_STICK_EFFECTIVE_LEFT,
+    RIGHT_STICK_RIGHT: RIGHT_STICK_EFFECTIVE_RIGHT,
+}
 
 
 class MapperService(QObject):
@@ -113,10 +140,17 @@ class MapperService(QObject):
         self._normalized_states: Dict[str, NormalizedControllerState] = {}
         self._active_controls: Dict[str, Set[str]] = {}
         self._focused_controls: Dict[str, str] = {}
+        self._single_fire_last_fired: Dict[str, Dict[str, float]] = {}
+        self._wheel_repeat_last_fired: Dict[str, Dict[str, float]] = {}
+        self._wheel_neutral_latches: Dict[str, Dict[str, object]] = {}
         self._mouse_motion_remainders: Dict[str, Tuple[float, float]] = {}
         self._mouse_scroll_remainders: Dict[str, Tuple[float, float]] = {}
+        self._right_stick_baselines: Dict[str, Tuple[float, float]] = {}
+        self._right_stick_diagnostics: Dict[str, Dict[str, object]] = {}
+        self._active_profile_signatures: Dict[str, Tuple[str, str]] = {}
         self._logs: Deque[str] = deque(maxlen=500)
         self._current_process_name = ""
+        self._log_load_report()
 
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
@@ -286,9 +320,7 @@ class MapperService(QObject):
         if app_profile is None:
             return
         device = self._ensure_device_profile_by_id(device_id)
-        family_id = ""
-        if device is not None:
-            family_id = device.saved_family_id or device.family_override_id
+        family_id = self._resolve_app_family_id(device, app_profile)
         app_profile.presets = build_default_presets_for_process(app_profile.process_name, family_id)
         app_profile.active_preset_index = 0
         self._log(self.tr("toast_reset"))
@@ -304,13 +336,32 @@ class MapperService(QObject):
         label: str,
         action_kind: str = MAPPING_ACTION_KEYBOARD,
     ) -> None:
+        device = self._ensure_device_profile_by_id(device_id)
+        app_profile = self._selected_app_profile(device_id)
         preset = self._selected_preset(device_id)
-        if preset is None:
+        if device is None or app_profile is None or preset is None:
             return
         canonical_control = canonicalize_control_id(control)
+        if canonical_control == RIGHT_STICK_MODE or normalize_mapping_action_kind(action_kind) == MAPPING_ACTION_STICK_MODE:
+            self._apply_right_stick_mode_to_preset(preset, shortcut)
+            self._persist()
+            self._emit_snapshot()
+            return
         normalized_shortcut = normalize_shortcut_text(shortcut.strip())
         normalized_action_kind = normalize_mapping_action_kind(action_kind)
         trimmed_label = label.strip()
+        default_assignment = default_assignment_for_process(
+            app_profile.process_name,
+            self._resolve_app_family_id(device, app_profile),
+            app_profile.active_preset_index,
+            canonical_control,
+        )
+        previous_assignment = preset.assignment_for(canonical_control)
+        if (
+            normalized_action_kind == default_assignment.action_kind
+            and normalized_shortcut == normalize_shortcut_text(default_assignment.shortcut)
+        ):
+            trimmed_label = default_assignment.label
         if (
             normalized_action_kind == MAPPING_ACTION_KEYBOARD
             and not normalized_shortcut
@@ -339,10 +390,15 @@ class MapperService(QObject):
         canonical_control = canonicalize_control_id(control)
         default_assignment = default_assignment_for_process(
             app_profile.process_name,
-            device.saved_family_id or device.family_override_id,
+            self._resolve_app_family_id(device, app_profile),
             app_profile.active_preset_index,
             canonical_control,
         )
+        if default_assignment.action_kind == MAPPING_ACTION_STICK_MODE:
+            self._apply_right_stick_mode_to_preset(preset, default_assignment.shortcut)
+            self._persist()
+            self._emit_snapshot()
+            return
         if (
             default_assignment.action_kind == MAPPING_ACTION_KEYBOARD
             and not default_assignment.shortcut
@@ -392,6 +448,11 @@ class MapperService(QObject):
                 continue
 
             active_app_profile = self._resolve_active_app_profile(device_profile, self._current_process_name)
+            preset = active_app_profile.active_preset()
+            profile_signature = (active_app_profile.app_profile_id, preset.preset_id)
+            if self._active_profile_signatures.get(device_id) != profile_signature:
+                self._reset_right_stick_runtime_state(device_id)
+                self._active_profile_signatures[device_id] = profile_signature
             active_controls = {
                 control
                 for control, control_state in normalized_state.controls.items()
@@ -412,21 +473,93 @@ class MapperService(QObject):
                     device_profile.preset_switch.previous_control,
                     device_profile.preset_switch.next_control,
                 }
-            preset = active_app_profile.active_preset()
-            move_enabled = self._group_action_enabled(preset, LEFT_STICK_DIRECTION_CONTROLS, MAPPING_ACTION_MOUSE_MOVE)
-            scroll_enabled = self._group_action_enabled(
-                preset,
-                RIGHT_STICK_DIRECTION_CONTROLS,
-                MAPPING_ACTION_MOUSE_SCROLL,
+            right_stick_vector = self._stabilize_right_stick_vector(device_id, normalized_state.right_stick)
+            self._update_input_diagnostics(
+                device_profile=device_profile,
+                app_profile=active_app_profile,
+                preset=preset,
+                normalized_state=normalized_state,
+                active_controls=active_controls,
+                rising_controls=rising_controls,
             )
-            if move_enabled:
-                self._dispatch_left_stick_motion(device_profile, active_app_profile, normalized_state)
+            right_stick_mode = normalize_right_stick_mode(preset.right_stick_mode)
+            move_directions = self._analog_action_directions(
+                preset,
+                LEFT_STICK_DIRECTION_CONTROLS,
+                MAPPING_ACTION_MOUSE_MOVE,
+            )
+            if any(move_directions):
+                self._dispatch_left_stick_motion(
+                    device_profile,
+                    active_app_profile,
+                    normalized_state,
+                    move_directions,
+                )
             else:
                 self._mouse_motion_remainders.pop(device_id, None)
-            if scroll_enabled:
-                self._dispatch_right_stick_scroll(device_profile, active_app_profile, normalized_state)
+            if right_stick_mode == RIGHT_STICK_MODE_CONTINUOUS_SCROLL:
+                self._dispatch_right_stick_scroll(
+                    device_profile,
+                    active_app_profile,
+                    normalized_state,
+                    right_stick_vector,
+                    (True, True, True, True),
+                )
+            elif right_stick_mode == RIGHT_STICK_MODE_MOUSE_MOVE:
+                self._dispatch_analog_vector(
+                    device_profile=device_profile,
+                    app_profile=active_app_profile,
+                    normalized_state=normalized_state,
+                    raw_vector=right_stick_vector,
+                    remainder_store=self._mouse_motion_remainders,
+                    base_unit=ANALOG_MOUSE_BASE_PIXELS_PER_TICK,
+                    deadzone=active_app_profile.analog_deadzone,
+                    activation_threshold=None,
+                    curve=active_app_profile.analog_curve or ANALOG_DEFAULT_CURVE,
+                    sensitivity=active_app_profile.mouse_sensitivity,
+                    invert_y=True,
+                    enabled_directions=(True, True, True, True),
+                    output_method=self._output.move_mouse,
+                    output_label="mouse move",
+                )
+            elif right_stick_mode == RIGHT_STICK_MODE_CUSTOM_ADVANCED:
+                scroll_directions = self._analog_action_directions(
+                    preset,
+                    RIGHT_STICK_DIRECTION_CONTROLS,
+                    MAPPING_ACTION_MOUSE_SCROLL,
+                )
+                if any(scroll_directions):
+                    self._dispatch_right_stick_scroll(
+                        device_profile,
+                        active_app_profile,
+                        normalized_state,
+                        right_stick_vector,
+                        scroll_directions,
+                    )
+                else:
+                    self._mouse_scroll_remainders.pop(device_id, None)
+                self._dispatch_right_stick_wheel_actions(
+                    device_profile,
+                    active_app_profile,
+                    normalized_state,
+                    preset,
+                    right_stick_vector,
+                    canonical_source="right_stick_mode:custom_advanced",
+                )
             else:
                 self._mouse_scroll_remainders.pop(device_id, None)
+            if right_stick_mode in {
+                RIGHT_STICK_MODE_WHEEL_STEP_VERTICAL,
+                RIGHT_STICK_MODE_WHEEL_STEP_4WAY,
+            }:
+                self._dispatch_right_stick_wheel_step_mode(
+                    device_profile,
+                    active_app_profile,
+                    normalized_state,
+                    preset,
+                    right_stick_vector,
+                    right_stick_mode,
+                )
 
             for control in sorted(rising_controls):
                 if control in reserved_controls:
@@ -434,15 +567,34 @@ class MapperService(QObject):
                 assignment = preset.assignment_for(control)
                 if assignment.action_kind in {MAPPING_ACTION_MOUSE_MOVE, MAPPING_ACTION_MOUSE_SCROLL}:
                     continue
+                if (
+                    control in RIGHT_STICK_DIRECTION_CONTROLS
+                    and assignment.action_kind in {
+                        MAPPING_ACTION_MOUSE_WHEEL_UP,
+                        MAPPING_ACTION_MOUSE_WHEEL_DOWN,
+                        MAPPING_ACTION_MOUSE_WHEEL_LEFT,
+                        MAPPING_ACTION_MOUSE_WHEEL_RIGHT,
+                    }
+                ):
+                    continue
+                if not self._should_dispatch_assignment(device_id, control, assignment):
+                    continue
                 self._dispatch_assignment(device_profile, control, assignment)
             self._active_controls[device_id] = active_controls
+            self._prune_single_fire_state(device_id, active_controls)
 
         disconnected_device_ids = set(self._active_controls) - set(self._normalized_states)
         for device_id in disconnected_device_ids:
             self._active_controls.pop(device_id, None)
             self._focused_controls.pop(device_id, None)
+            self._single_fire_last_fired.pop(device_id, None)
+            self._wheel_repeat_last_fired.pop(device_id, None)
+            self._wheel_neutral_latches.pop(device_id, None)
             self._mouse_motion_remainders.pop(device_id, None)
             self._mouse_scroll_remainders.pop(device_id, None)
+            self._right_stick_baselines.pop(device_id, None)
+            self._right_stick_diagnostics.pop(device_id, None)
+            self._active_profile_signatures.pop(device_id, None)
 
     def _handle_preset_switch(
         self,
@@ -491,11 +643,23 @@ class MapperService(QObject):
     ) -> bool:
         return any(preset.assignment_for(control).action_kind == action_kind for control in controls)
 
+    def _analog_action_directions(
+        self,
+        preset: Preset,
+        controls: Tuple[str, ...],
+        action_kind: str,
+    ) -> Tuple[bool, ...]:
+        return tuple(
+            preset.assignment_for(control).action_kind == action_kind
+            for control in controls
+        )
+
     def _dispatch_left_stick_motion(
         self,
         device_profile: DeviceProfile,
         app_profile: AppProfile,
         normalized_state: NormalizedControllerState,
+        enabled_directions: Tuple[bool, bool, bool, bool],
     ) -> None:
         self._dispatch_analog_vector(
             device_profile=device_profile,
@@ -504,9 +668,12 @@ class MapperService(QObject):
             raw_vector=normalized_state.left_stick,
             remainder_store=self._mouse_motion_remainders,
             base_unit=ANALOG_MOUSE_BASE_PIXELS_PER_TICK,
+            deadzone=app_profile.analog_deadzone,
+            activation_threshold=None,
             curve=app_profile.analog_curve or ANALOG_DEFAULT_CURVE,
             sensitivity=app_profile.mouse_sensitivity,
             invert_y=True,
+            enabled_directions=enabled_directions,
             output_method=self._output.move_mouse,
             output_label="mouse move",
         )
@@ -516,17 +683,22 @@ class MapperService(QObject):
         device_profile: DeviceProfile,
         app_profile: AppProfile,
         normalized_state: NormalizedControllerState,
+        stabilized_vector: Tuple[float, float],
+        enabled_directions: Tuple[bool, bool, bool, bool],
     ) -> None:
         self._dispatch_analog_vector(
             device_profile=device_profile,
             app_profile=app_profile,
             normalized_state=normalized_state,
-            raw_vector=normalized_state.right_stick,
+            raw_vector=stabilized_vector,
             remainder_store=self._mouse_scroll_remainders,
             base_unit=ANALOG_SCROLL_BASE_UNITS_PER_TICK,
+            deadzone=app_profile.scroll_deadzone,
+            activation_threshold=app_profile.scroll_activation_threshold,
             curve=app_profile.analog_curve or ANALOG_DEFAULT_SCROLL_CURVE,
             sensitivity=app_profile.scroll_sensitivity,
             invert_y=False,
+            enabled_directions=enabled_directions,
             output_method=self._output.scroll_mouse,
             output_label="mouse scroll",
         )
@@ -540,19 +712,36 @@ class MapperService(QObject):
         raw_vector: Tuple[float, float],
         remainder_store: Dict[str, Tuple[float, float]],
         base_unit: float,
+        deadzone: float,
+        activation_threshold: Optional[float],
         curve: float,
         sensitivity: float,
         invert_y: bool,
+        enabled_directions: Tuple[bool, bool, bool, bool],
         output_method,
         output_label: str,
     ) -> None:
         x_value, y_value = raw_vector
-        deadzone = max(0.0, min(0.95, app_profile.analog_deadzone))
+        left_enabled, right_enabled, up_enabled, down_enabled = enabled_directions
+        x_value = self._filter_analog_component(x_value, negative_enabled=left_enabled, positive_enabled=right_enabled)
+        y_value = self._filter_analog_component(y_value, negative_enabled=down_enabled, positive_enabled=up_enabled)
+        deadzone = max(0.0, min(0.95, deadzone))
+        threshold = deadzone if activation_threshold is None else max(deadzone, min(0.98, activation_threshold))
+        if abs(x_value) < threshold:
+            x_value = 0.0
+        if abs(y_value) < threshold:
+            y_value = 0.0
         scale = self._analog_speed_scale(normalized_state, app_profile)
         scaled_x = self._shape_analog_value(x_value, deadzone, curve) * base_unit * sensitivity * scale
         scaled_y = self._shape_analog_value(y_value, deadzone, curve) * base_unit * sensitivity * scale
         if invert_y:
             scaled_y = -scaled_y
+
+        diagnostics = self._right_stick_diagnostics.setdefault(device_profile.device_id, {})
+        if output_label == "mouse scroll":
+            diagnostics["scroll_shaped_vector"] = (round(scaled_x, 4), round(scaled_y, 4))
+            diagnostics["scroll_deadzone"] = round(deadzone, 4)
+            diagnostics["scroll_activation_threshold"] = round(threshold, 4)
 
         if scaled_x == 0.0 and scaled_y == 0.0:
             remainder_store.pop(device_profile.device_id, None)
@@ -579,6 +768,424 @@ class MapperService(QObject):
                 )
             )
             return
+        if output_label == "mouse scroll":
+            diagnostics["scroll_emitted"] = (emit_x, emit_y)
+            self._record_analog_scroll_emission(device_profile.device_id, emit_x, emit_y)
+            self._log(
+                "RS scroll -> raw={raw} stabilized={stabilized} shaped=({sx:.3f}, {sy:.3f}) emit=({ex}, {ey})".format(
+                    raw=diagnostics.get("raw_vector"),
+                    stabilized=diagnostics.get("stabilized_vector"),
+                    sx=scaled_x,
+                    sy=scaled_y,
+                    ex=emit_x,
+                    ey=emit_y,
+                )
+            )
+
+    def _filter_analog_component(
+        self,
+        value: float,
+        *,
+        negative_enabled: bool,
+        positive_enabled: bool,
+    ) -> float:
+        signed_value = float(value)
+        if signed_value < 0.0 and not negative_enabled:
+            return 0.0
+        if signed_value > 0.0 and not positive_enabled:
+            return 0.0
+        if not negative_enabled and not positive_enabled:
+            return 0.0
+        return signed_value
+
+    def _stabilize_right_stick_vector(
+        self,
+        device_id: str,
+        raw_vector: Tuple[float, float],
+    ) -> Tuple[float, float]:
+        raw_x, raw_y = (float(raw_vector[0]), float(raw_vector[1]))
+        baseline_x, baseline_y = self._right_stick_baselines.get(device_id, (0.0, 0.0))
+        if max(abs(raw_x), abs(raw_y)) <= RIGHT_STICK_IDLE_BASELINE_MAX:
+            if device_id not in self._right_stick_baselines:
+                baseline_x, baseline_y = raw_x, raw_y
+            else:
+                baseline_x = ((1.0 - RIGHT_STICK_BASELINE_UPDATE_ALPHA) * baseline_x) + (
+                    RIGHT_STICK_BASELINE_UPDATE_ALPHA * raw_x
+                )
+                baseline_y = ((1.0 - RIGHT_STICK_BASELINE_UPDATE_ALPHA) * baseline_y) + (
+                    RIGHT_STICK_BASELINE_UPDATE_ALPHA * raw_y
+                )
+            self._right_stick_baselines[device_id] = (baseline_x, baseline_y)
+        stabilized = (
+            max(-1.0, min(1.0, raw_x - baseline_x)),
+            max(-1.0, min(1.0, raw_y - baseline_y)),
+        )
+        diagnostics = self._right_stick_diagnostics.setdefault(device_id, {})
+        diagnostics["raw_vector"] = (round(raw_x, 4), round(raw_y, 4))
+        diagnostics["baseline_vector"] = (round(baseline_x, 4), round(baseline_y, 4))
+        diagnostics["stabilized_vector"] = (round(stabilized[0], 4), round(stabilized[1], 4))
+        return stabilized
+
+    def input_diagnostics(self, device_id: str) -> Dict[str, object]:
+        return deepcopy(self._right_stick_diagnostics.get(device_id, {}))
+
+    def right_stick_diagnostics(self, device_id: str) -> Dict[str, object]:
+        return self.input_diagnostics(device_id)
+
+    def _dispatch_right_stick_wheel_actions(
+        self,
+        device_profile: DeviceProfile,
+        app_profile: AppProfile,
+        normalized_state: NormalizedControllerState,
+        preset: Preset,
+        stabilized_vector: Tuple[float, float],
+        canonical_source: str = "",
+    ) -> None:
+        diagnostics = self._right_stick_diagnostics.setdefault(device_profile.device_id, {})
+        diagnostics["wheel_deadzone"] = round(app_profile.scroll_deadzone, 4)
+        diagnostics["wheel_activation_threshold"] = round(app_profile.scroll_activation_threshold, 4)
+        now = monotonic()
+        neutral_threshold = max(0.0, min(0.95, app_profile.scroll_deadzone))
+        threshold = max(neutral_threshold, min(0.98, app_profile.scroll_activation_threshold))
+        dominance_margin = RIGHT_STICK_WHEEL_DOMINANCE_MARGIN
+        repeat_store = self._wheel_repeat_last_fired.setdefault(device_profile.device_id, {})
+
+        neutral_armed = True
+        latch_state: Dict[str, object] = {
+            "armed": True,
+            "neutral_since": None,
+            "required": False,
+        }
+        if normalized_state.device_family_id == "xbox":
+            neutral_armed, latch_state = self._update_wheel_neutral_latch(
+                device_profile.device_id,
+                stabilized_vector,
+                neutral_threshold,
+                now,
+            )
+        diagnostics["wheel_neutral_latch"] = {
+            "armed": bool(latch_state.get("armed")),
+            "neutral_since": (
+                round(float(latch_state["neutral_since"]), 4)
+                if latch_state.get("neutral_since") is not None
+                else None
+            ),
+            "required": bool(latch_state.get("required")),
+            "neutral_threshold": round(neutral_threshold, 4),
+            "duration_seconds": RIGHT_STICK_NEUTRAL_LATCH_SECONDS,
+        }
+
+        x_value, y_value = stabilized_vector
+        abs_x = abs(x_value)
+        abs_y = abs(y_value)
+        is_neutral = max(abs_x, abs_y) < neutral_threshold
+        dominant_control = ""
+        if abs_y >= threshold and abs_y > abs_x + dominance_margin:
+            dominant_control = RIGHT_STICK_UP if y_value > 0.0 else RIGHT_STICK_DOWN
+        elif abs_x >= threshold and abs_x > abs_y + dominance_margin:
+            dominant_control = RIGHT_STICK_RIGHT if x_value > 0.0 else RIGHT_STICK_LEFT
+        diagnostics["wheel_vector_analysis"] = {
+            "abs_x": round(abs_x, 4),
+            "abs_y": round(abs_y, 4),
+            "dominance_margin": round(dominance_margin, 4),
+            "dominant_control": dominant_control,
+            "dominant_axis": (
+                "vertical"
+                if dominant_control in {RIGHT_STICK_UP, RIGHT_STICK_DOWN}
+                else "horizontal"
+                if dominant_control in {RIGHT_STICK_LEFT, RIGHT_STICK_RIGHT}
+                else ""
+            ),
+            "vertical_dominance_passed": dominant_control in {RIGHT_STICK_UP, RIGHT_STICK_DOWN},
+            "horizontal_dominance_passed": dominant_control in {RIGHT_STICK_LEFT, RIGHT_STICK_RIGHT},
+            "is_neutral": is_neutral,
+        }
+        if is_neutral:
+            self._clear_wheel_repeat_state(device_profile.device_id, "neutral")
+            diagnostics["wheel_repeat_active_control"] = ""
+            return
+
+        active_control = ""
+        active_assignment: Optional[MappingAssignment] = None
+        for control, direction_value in (
+            (RIGHT_STICK_LEFT, max(0.0, -x_value)),
+            (RIGHT_STICK_RIGHT, max(0.0, x_value)),
+            (RIGHT_STICK_UP, max(0.0, y_value)),
+            (RIGHT_STICK_DOWN, max(0.0, -y_value)),
+        ):
+            assignment = preset.assignment_for(control)
+            is_wheel_assignment = assignment.action_kind in {
+                MAPPING_ACTION_MOUSE_WHEEL_UP,
+                MAPPING_ACTION_MOUSE_WHEEL_DOWN,
+                MAPPING_ACTION_MOUSE_WHEEL_LEFT,
+                MAPPING_ACTION_MOUSE_WHEEL_RIGHT,
+            }
+            is_dominant = control == dominant_control
+            is_active = neutral_armed and is_wheel_assignment and is_dominant
+            if assignment.action_kind not in {
+                MAPPING_ACTION_MOUSE_WHEEL_UP,
+                MAPPING_ACTION_MOUSE_WHEEL_DOWN,
+                MAPPING_ACTION_MOUSE_WHEEL_LEFT,
+                MAPPING_ACTION_MOUSE_WHEEL_RIGHT,
+            }:
+                repeat_store.pop(control, None)
+            diagnostics["wheel_{control}".format(control=control)] = {
+                "value": round(direction_value, 4),
+                "active": is_active,
+                "dominant": is_dominant,
+                "eligible": is_wheel_assignment,
+                "action_kind": assignment.action_kind,
+            }
+            if is_active:
+                active_control = control
+                active_assignment = assignment
+
+        if not neutral_armed:
+            self._clear_wheel_repeat_state(device_profile.device_id, "awaiting_neutral_latch")
+            diagnostics["wheel_repeat_active_control"] = ""
+            return
+        if not active_control or active_assignment is None:
+            self._clear_wheel_repeat_state(device_profile.device_id, "no_dominant_direction")
+            diagnostics["wheel_repeat_active_control"] = ""
+            return
+
+        current_repeat_control = next(iter(repeat_store), "")
+        if current_repeat_control and current_repeat_control != active_control:
+            self._clear_wheel_repeat_state(device_profile.device_id, "direction_flip")
+            repeat_store = self._wheel_repeat_last_fired.setdefault(device_profile.device_id, {})
+
+        diagnostics["wheel_repeat_active_control"] = active_control
+        last_fired_at = repeat_store.get(active_control)
+        if last_fired_at is not None and now - last_fired_at < WHEEL_REPEAT_INTERVAL_SECONDS:
+            return
+
+        repeat_store[active_control] = now
+        self._dispatch_assignment(
+            device_profile,
+            active_control,
+            active_assignment,
+            canonical_source=canonical_source,
+        )
+        diagnostics["wheel_emitted"] = {
+            "control": active_control,
+            "action_kind": active_assignment.action_kind,
+            "canonical_source": canonical_source or "assignment:{control}".format(control=active_control),
+        }
+        self._log(
+            "RS wheel -> control={control} raw={raw} stabilized={stabilized} action={action}".format(
+                control=active_control,
+                raw=diagnostics.get("raw_vector"),
+                stabilized=diagnostics.get("stabilized_vector"),
+                action=active_assignment.action_kind,
+            )
+        )
+
+        if not repeat_store:
+            self._wheel_repeat_last_fired.pop(device_profile.device_id, None)
+
+    def _dispatch_right_stick_wheel_step_mode(
+        self,
+        device_profile: DeviceProfile,
+        app_profile: AppProfile,
+        normalized_state: NormalizedControllerState,
+        preset: Preset,
+        stabilized_vector: Tuple[float, float],
+        right_stick_mode: str,
+    ) -> None:
+        normalized_mode = normalize_right_stick_mode(right_stick_mode)
+        diagnostics = self._right_stick_diagnostics.setdefault(device_profile.device_id, {})
+        diagnostics["right_stick_mode"] = normalized_mode
+        diagnostics["right_stick_canonical_source"] = "right_stick_mode:{mode}".format(mode=normalized_mode)
+        temp_preset = Preset(
+            preset_id=preset.preset_id,
+            name=preset.name,
+            right_stick_mode=preset.right_stick_mode,
+            mappings=self._right_stick_wheel_step_assignments(normalized_mode),
+        )
+        self._dispatch_right_stick_wheel_actions(
+            device_profile,
+            app_profile,
+            normalized_state,
+            temp_preset,
+            stabilized_vector,
+            canonical_source="right_stick_mode:{mode}".format(mode=normalized_mode),
+        )
+
+    def _dispatch_right_stick_wheel_mode(
+        self,
+        device_profile: DeviceProfile,
+        app_profile: AppProfile,
+        normalized_state: NormalizedControllerState,
+        preset: Preset,
+        stabilized_vector: Tuple[float, float],
+    ) -> None:
+        self._dispatch_right_stick_wheel_step_mode(
+            device_profile,
+            app_profile,
+            normalized_state,
+            preset,
+            stabilized_vector,
+            RIGHT_STICK_MODE_WHEEL_STEP_VERTICAL,
+        )
+
+    def _right_stick_wheel_step_assignments(self, right_stick_mode: str) -> Dict[str, MappingAssignment]:
+        normalized_mode = normalize_right_stick_mode(right_stick_mode)
+        assignments: Dict[str, MappingAssignment] = {
+            RIGHT_STICK_UP: MappingAssignment(
+                control=RIGHT_STICK_UP,
+                action_kind=MAPPING_ACTION_MOUSE_WHEEL_UP,
+            ),
+            RIGHT_STICK_DOWN: MappingAssignment(
+                control=RIGHT_STICK_DOWN,
+                action_kind=MAPPING_ACTION_MOUSE_WHEEL_DOWN,
+            ),
+        }
+        if normalized_mode == RIGHT_STICK_MODE_WHEEL_STEP_4WAY:
+            assignments[RIGHT_STICK_LEFT] = MappingAssignment(
+                control=RIGHT_STICK_LEFT,
+                action_kind=MAPPING_ACTION_MOUSE_WHEEL_LEFT,
+            )
+            assignments[RIGHT_STICK_RIGHT] = MappingAssignment(
+                control=RIGHT_STICK_RIGHT,
+                action_kind=MAPPING_ACTION_MOUSE_WHEEL_RIGHT,
+            )
+        return assignments
+
+    def _update_wheel_neutral_latch(
+        self,
+        device_id: str,
+        stabilized_vector: Tuple[float, float],
+        neutral_threshold: float,
+        now: float,
+    ) -> Tuple[bool, Dict[str, object]]:
+        latch_state = self._wheel_neutral_latches.setdefault(
+            device_id,
+            {
+                "armed": False,
+                "neutral_since": None,
+                "required": True,
+            },
+        )
+        in_neutral = max(abs(stabilized_vector[0]), abs(stabilized_vector[1])) < neutral_threshold
+        if in_neutral:
+            if latch_state.get("neutral_since") is None:
+                latch_state["neutral_since"] = now
+            elif not latch_state.get("armed") and now - float(latch_state["neutral_since"]) >= RIGHT_STICK_NEUTRAL_LATCH_SECONDS:
+                latch_state["armed"] = True
+        elif not latch_state.get("armed"):
+            latch_state["neutral_since"] = None
+        else:
+            latch_state["neutral_since"] = None
+        return bool(latch_state.get("armed")), latch_state
+
+    def _clear_wheel_repeat_state(self, device_id: str, reason: str) -> None:
+        self._wheel_repeat_last_fired.pop(device_id, None)
+        diagnostics = self._right_stick_diagnostics.setdefault(device_id, {})
+        diagnostics["wheel_repeat_reset_reason"] = reason
+
+    def _reset_right_stick_runtime_state(self, device_id: str) -> None:
+        self._clear_wheel_repeat_state(device_id, "profile_changed")
+        self._wheel_neutral_latches.pop(device_id, None)
+        self._mouse_scroll_remainders.pop(device_id, None)
+
+    def _update_input_diagnostics(
+        self,
+        *,
+        device_profile: DeviceProfile,
+        app_profile: AppProfile,
+        preset: Preset,
+        normalized_state: NormalizedControllerState,
+        active_controls: Set[str],
+        rising_controls: Set[str],
+    ) -> None:
+        diagnostics = self._right_stick_diagnostics.setdefault(device_profile.device_id, {})
+        diagnostics["right_stick_mode"] = normalize_right_stick_mode(preset.right_stick_mode)
+        diagnostics["profile"] = {
+            "app_profile_id": app_profile.app_profile_id,
+            "app_profile_name": app_profile.name,
+            "process_name": app_profile.process_name,
+            "preset_id": preset.preset_id,
+            "preset_name": preset.name,
+        }
+        active_entries = []
+        upward_candidates = []
+        for control in sorted(active_controls):
+            control_state = normalized_state.controls.get(control)
+            if control_state is None:
+                continue
+            assignment = preset.assignment_for(control)
+            entry = {
+                "control": control,
+                "value": round(control_state.value, 4),
+                "source": control_state.source,
+                "action_kind": assignment.action_kind,
+                "shortcut": normalize_shortcut_text(assignment.shortcut),
+                "label": assignment.label,
+                "rising": control in rising_controls,
+            }
+            active_entries.append(entry)
+            if self._assignment_source_kind(assignment) in {"mouse_wheel_up", "mouse_scroll", "keyboard_up"}:
+                upward_candidates.append(entry)
+        diagnostics["active_controls"] = active_entries
+        diagnostics["upward_candidates"] = upward_candidates
+        diagnostics["focused_control"] = self._focused_controls.get(device_profile.device_id, "")
+
+    def _assignment_source_kind(self, assignment: MappingAssignment) -> str:
+        if assignment.action_kind == MAPPING_ACTION_MOUSE_WHEEL_UP:
+            return "mouse_wheel_up"
+        if assignment.action_kind == MAPPING_ACTION_MOUSE_WHEEL_DOWN:
+            return "mouse_wheel_down"
+        if assignment.action_kind == MAPPING_ACTION_MOUSE_WHEEL_LEFT:
+            return "mouse_wheel_left"
+        if assignment.action_kind == MAPPING_ACTION_MOUSE_WHEEL_RIGHT:
+            return "mouse_wheel_right"
+        if assignment.action_kind == MAPPING_ACTION_MOUSE_SCROLL:
+            return "mouse_scroll"
+        if assignment.action_kind == MAPPING_ACTION_KEYBOARD:
+            normalized_shortcut = normalize_shortcut_text(assignment.shortcut)
+            if normalized_shortcut == "Arrow Up":
+                return "keyboard_up"
+            if normalized_shortcut == "Arrow Down":
+                return "keyboard_down"
+            return "keyboard"
+        return assignment.action_kind
+
+    def _record_analog_scroll_emission(self, device_id: str, emit_x: int, emit_y: int) -> None:
+        diagnostics = self._right_stick_diagnostics.setdefault(device_id, {})
+        entry = {
+            "control": "RIGHT_STICK_ANALOG",
+            "action_kind": MAPPING_ACTION_MOUSE_SCROLL,
+            "source_kind": "mouse_scroll",
+            "emit_vector": (emit_x, emit_y),
+        }
+        diagnostics["last_emitted_action"] = entry
+        if emit_y > 0:
+            diagnostics["last_upward_emission"] = entry
+
+    def _record_action_emission(
+        self,
+        device_id: str,
+        control: str,
+        assignment: MappingAssignment,
+        canonical_source: str = "",
+    ) -> None:
+        diagnostics = self._right_stick_diagnostics.setdefault(device_id, {})
+        normalized_state = self._normalized_states.get(device_id)
+        physical_source = ""
+        if normalized_state is not None and control in normalized_state.controls:
+            physical_source = normalized_state.controls[control].source
+        entry = {
+            "control": control,
+            "action_kind": assignment.action_kind,
+            "shortcut": normalize_shortcut_text(assignment.shortcut),
+            "label": assignment.label,
+            "source_kind": self._assignment_source_kind(assignment),
+            "physical_source": physical_source,
+            "canonical_source": canonical_source or "assignment:{control}".format(control=control),
+        }
+        diagnostics["last_emitted_action"] = entry
+        if entry["source_kind"] in {"mouse_wheel_up", "keyboard_up", "mouse_scroll"}:
+            diagnostics["last_upward_emission"] = entry
 
     def _analog_speed_scale(self, normalized_state: NormalizedControllerState, app_profile: AppProfile) -> float:
         scale = 1.0
@@ -608,6 +1215,7 @@ class MapperService(QObject):
         device_profile: DeviceProfile,
         control: str,
         assignment: MappingAssignment,
+        canonical_source: str = "",
     ) -> None:
         if assignment.action_kind == MAPPING_ACTION_MOUSE_LEFT_CLICK:
             error = self._output.click_mouse("left")
@@ -643,6 +1251,12 @@ class MapperService(QObject):
                 )
             )
             return
+        self._record_action_emission(
+            device_profile.device_id,
+            control,
+            assignment,
+            canonical_source=canonical_source,
+        )
         self._log(
             "{device}: {action}".format(
                 device=device_profile.display_name,
@@ -650,7 +1264,60 @@ class MapperService(QObject):
             )
         )
 
+    def _should_dispatch_assignment(self, device_id: str, control: str, assignment: MappingAssignment) -> bool:
+        if not self._is_single_fire_assignment(assignment):
+            return True
+
+        now = monotonic()
+        device_fires = self._single_fire_last_fired.setdefault(device_id, {})
+        last_fired_at = device_fires.get(control)
+        if last_fired_at is not None and now - last_fired_at < SINGLE_FIRE_COOLDOWN_SECONDS:
+            return False
+
+        device_fires[control] = now
+        return True
+
+    def _prune_single_fire_state(self, device_id: str, active_controls: Set[str]) -> None:
+        device_fires = self._single_fire_last_fired.get(device_id)
+        if not device_fires:
+            return
+        for control in list(device_fires):
+            if control not in active_controls:
+                device_fires.pop(control, None)
+        if not device_fires:
+            self._single_fire_last_fired.pop(device_id, None)
+
+    def _is_single_fire_assignment(self, assignment: MappingAssignment) -> bool:
+        if assignment.action_kind in {
+            MAPPING_ACTION_MOUSE_LEFT_CLICK,
+            MAPPING_ACTION_MOUSE_RIGHT_CLICK,
+            MAPPING_ACTION_MOUSE_MIDDLE_CLICK,
+            MAPPING_ACTION_MOUSE_DOUBLE_CLICK,
+        }:
+            return True
+
+        if assignment.action_kind != MAPPING_ACTION_KEYBOARD:
+            return False
+
+        normalized_shortcut = normalize_shortcut_text(assignment.shortcut)
+        return normalized_shortcut in {
+            "Alt+Arrow Left",
+            "Alt+Arrow Right",
+            "Space",
+            "M",
+            "F",
+            "Tab",
+            "Enter",
+            "Media Play/Pause",
+            "Volume Mute",
+            "Shift+N",
+        }
+
     def _assignment_action_text(self, assignment: MappingAssignment, control: str) -> str:
+        if assignment.action_kind == MAPPING_ACTION_STICK_MODE:
+            return self._right_stick_mode_action_text(assignment.shortcut)
+        if assignment.action_kind == MAPPING_ACTION_KEYBOARD and not assignment.shortcut and not assignment.label:
+            return self.tr("mapping.unassigned")
         if assignment.action_kind == MAPPING_ACTION_MOUSE_MOVE:
             return self.tr("mapping.mouse_pointer_movement")
         if assignment.action_kind == MAPPING_ACTION_MOUSE_SCROLL:
@@ -672,6 +1339,64 @@ class MapperService(QObject):
         if assignment.action_kind == MAPPING_ACTION_MOUSE_WHEEL_RIGHT:
             return self.tr("mapping.mouse_wheel_right")
         return format_shortcut_text(assignment.shortcut) or "-"
+
+    def _assignment_matches_semantics(
+        self,
+        assignment: MappingAssignment,
+        expected: Optional[MappingAssignment],
+    ) -> bool:
+        if expected is None:
+            return False
+        return (
+            normalize_shortcut_text(assignment.shortcut) == normalize_shortcut_text(expected.shortcut)
+            and normalize_mapping_action_kind(assignment.action_kind)
+            == normalize_mapping_action_kind(expected.action_kind)
+        )
+
+    def _fallback_label_for_assignment(self, assignment: MappingAssignment, control: str) -> str:
+        if assignment.action_kind == MAPPING_ACTION_STICK_MODE:
+            return ""
+        if assignment.action_kind == MAPPING_ACTION_KEYBOARD:
+            if not assignment.shortcut:
+                return self.tr("mapping.unassigned")
+            return assignment.label or format_shortcut_text(assignment.shortcut) or self.tr("mapping.unassigned")
+        return assignment.label or self._assignment_action_text(assignment, control)
+
+    def _effective_assignment_label(
+        self,
+        assignment: MappingAssignment,
+        control: str,
+        selected_app_profile: Optional[AppProfile],
+        family_id: str,
+    ) -> str:
+        if assignment.action_kind == MAPPING_ACTION_STICK_MODE:
+            return ""
+        if selected_app_profile is not None:
+            default_assignment = default_assignment_for_process(
+                selected_app_profile.process_name,
+                family_id,
+                selected_app_profile.active_preset_index,
+                control,
+            )
+            if (
+                default_assignment.action_kind != MAPPING_ACTION_STICK_MODE
+                and self._assignment_matches_semantics(assignment, default_assignment)
+            ):
+                return default_assignment.label or self._fallback_label_for_assignment(default_assignment, control)
+        return self._fallback_label_for_assignment(assignment, control)
+
+    def _right_stick_mode_action_text(self, mode: str) -> str:
+        normalized_mode = normalize_right_stick_mode(mode)
+        return self.tr(
+            {
+                RIGHT_STICK_MODE_DISABLED: "mapping.stick_mode_disabled",
+                RIGHT_STICK_MODE_MOUSE_MOVE: "mapping.stick_mode_mouse_move",
+                RIGHT_STICK_MODE_WHEEL_STEP_VERTICAL: "mapping.stick_mode_wheel_step_vertical",
+                RIGHT_STICK_MODE_WHEEL_STEP_4WAY: "mapping.stick_mode_wheel_step_4way",
+                RIGHT_STICK_MODE_CONTINUOUS_SCROLL: "mapping.stick_mode_continuous_scroll",
+                RIGHT_STICK_MODE_CUSTOM_ADVANCED: "mapping.stick_mode_custom_advanced",
+            }.get(normalized_mode, "mapping.stick_mode_custom_advanced")
+        )
 
     def _resolve_active_app_profile(self, device_profile: DeviceProfile, process_name: str) -> AppProfile:
         wildcard_profile: Optional[AppProfile] = None
@@ -751,6 +1476,25 @@ class MapperService(QObject):
                 return control
         return sorted(rising_controls)[0]
 
+    def _resolve_app_family_id(self, device: Optional[DeviceProfile], app_profile: Optional[AppProfile]) -> str:
+        candidates = []
+        if app_profile is not None:
+            candidates.append(app_profile.family_id)
+        if device is not None:
+            candidates.append(device.saved_family_id)
+            candidates.append(device.family_override_id)
+        for candidate in candidates:
+            normalized = str(candidate or "").strip().lower()
+            if normalized:
+                return normalized
+        return ""
+
+    def _apply_right_stick_mode_to_preset(self, preset: Preset, mode: str) -> None:
+        preset.right_stick_mode = normalize_right_stick_mode(mode)
+        if preset.right_stick_mode != RIGHT_STICK_MODE_CUSTOM_ADVANCED:
+            for control in RIGHT_STICK_DIRECTION_CONTROLS:
+                preset.mappings.pop(control, None)
+
     def _ensure_device_profile(self, device_id: str, display_name: str, guid: str) -> DeviceProfile:
         existing = self._config.device_by_id(device_id)
         if existing is not None:
@@ -770,6 +1514,19 @@ class MapperService(QObject):
     def _log(self, message: str) -> None:
         timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
         self._logs.append("[{timestamp}] {message}".format(timestamp=timestamp, message=message))
+
+    def _log_load_report(self) -> None:
+        report = getattr(self._store, "last_load_report", {})
+        if not report:
+            return
+        self._log(
+            "Config load -> source={source} migrated={migrated} legacy_xbox={legacy_xbox} rebuilt_defaults={rebuilt}".format(
+                source=report.get("source", "unknown"),
+                migrated=bool(report.get("migrated", False)),
+                legacy_xbox=bool(report.get("legacy_xbox_recognized", False)),
+                rebuilt=bool(report.get("rebuilt_from_canonical_defaults", False)),
+            )
+        )
 
     def _toast(self, message: str) -> None:
         self.toast_requested.emit(message)
@@ -791,6 +1548,7 @@ class MapperService(QObject):
         visible_controls, control_labels = self._resolve_visible_controls(selected_device, normalized_state)
         mapping_rows = self._build_mapping_rows(
             selected_device=selected_device,
+            selected_app_profile=selected_app_profile,
             selected_preset=selected_preset,
             normalized_state=normalized_state,
             visible_controls=visible_controls,
@@ -863,6 +1621,7 @@ class MapperService(QObject):
     def _build_mapping_rows(
         self,
         selected_device: Optional[DeviceProfile],
+        selected_app_profile: Optional[AppProfile],
         selected_preset: Optional[Preset],
         normalized_state: Optional[NormalizedControllerState],
         visible_controls: Tuple[str, ...],
@@ -875,8 +1634,45 @@ class MapperService(QObject):
         next_control = canonicalize_control_id(selected_device.preset_switch.next_control)
         allow_preset_switch = not is_media_fallback_profile(selected_device.selected_app_profile())
         rows: List[MappingRow] = []
+        right_stick_mode_inserted = False
+        family_id = self._resolve_app_family_id(selected_device, selected_app_profile)
+        right_stick_mode = normalize_right_stick_mode(
+            selected_preset.right_stick_mode if selected_preset is not None else RIGHT_STICK_MODE_CUSTOM_ADVANCED
+        )
 
         for control in visible_controls:
+            if control in RIGHT_STICK_DIRECTION_CONTROLS and right_stick_mode != RIGHT_STICK_MODE_CUSTOM_ADVANCED:
+                if not right_stick_mode_inserted:
+                    right_stick_is_active = False
+                    if normalized_state is not None:
+                        right_stick_is_active = any(
+                            normalized_state.controls.get(stick_control) is not None
+                            and normalized_state.controls[stick_control].is_active
+                            for stick_control in RIGHT_STICK_DIRECTION_CONTROLS
+                        )
+                    rows.append(
+                        MappingRow(
+                            control=RIGHT_STICK_MODE,
+                            button_name=CONTROL_DISPLAY_NAMES.get(RIGHT_STICK_MODE, RIGHT_STICK_MODE),
+                            shortcut=right_stick_mode,
+                            action_kind=MAPPING_ACTION_STICK_MODE,
+                            action_text=self._right_stick_mode_action_text(right_stick_mode),
+                            label="",
+                            is_active=right_stick_is_active,
+                            is_system_action=False,
+                            system_text="",
+                        )
+                    )
+                    rows.extend(
+                        self._build_right_stick_effective_rows(
+                            selected_app_profile=selected_app_profile,
+                            normalized_state=normalized_state,
+                            right_stick_mode=right_stick_mode,
+                            control_labels=control_labels,
+                        )
+                    )
+                    right_stick_mode_inserted = True
+                continue
             is_active = False
             if normalized_state is not None and control in normalized_state.controls:
                 is_active = normalized_state.controls[control].is_active
@@ -898,13 +1694,111 @@ class MapperService(QObject):
                     shortcut=format_shortcut_text(assignment.shortcut),
                     action_kind=assignment.action_kind,
                     action_text=self._assignment_action_text(assignment, control),
-                    label=assignment.label,
+                    label=self._effective_assignment_label(assignment, control, selected_app_profile, family_id),
                     is_active=is_active,
                     is_system_action=is_system_action,
                     system_text=system_text,
                 )
             )
         return rows
+
+    def _build_right_stick_effective_rows(
+        self,
+        selected_app_profile: Optional[AppProfile],
+        normalized_state: Optional[NormalizedControllerState],
+        right_stick_mode: str,
+        control_labels: Dict[str, str],
+    ) -> List[MappingRow]:
+        effective_assignments = self._right_stick_effective_assignments(right_stick_mode)
+        rows: List[MappingRow] = []
+        for source_control in (
+            RIGHT_STICK_UP,
+            RIGHT_STICK_DOWN,
+            RIGHT_STICK_LEFT,
+            RIGHT_STICK_RIGHT,
+        ):
+            assignment = effective_assignments[source_control]
+            is_active = False
+            if normalized_state is not None and source_control in normalized_state.controls:
+                is_active = normalized_state.controls[source_control].is_active
+            rows.append(
+                MappingRow(
+                    control=RIGHT_STICK_EFFECTIVE_ROWS[source_control],
+                    button_name="  {label}".format(
+                        label=control_labels.get(source_control, CONTROL_DISPLAY_NAMES.get(source_control, source_control))
+                    ),
+                    shortcut=format_shortcut_text(assignment.shortcut),
+                    action_kind=assignment.action_kind,
+                    action_text=self._assignment_action_text(assignment, source_control),
+                    label=self._effective_assignment_label(assignment, source_control, selected_app_profile, ""),
+                    is_active=is_active,
+                    is_system_action=False,
+                    system_text="",
+                    is_read_only=True,
+                )
+            )
+        return rows
+
+    def _right_stick_effective_assignments(self, right_stick_mode: str) -> Dict[str, MappingAssignment]:
+        normalized_mode = normalize_right_stick_mode(right_stick_mode)
+        if normalized_mode == RIGHT_STICK_MODE_WHEEL_STEP_VERTICAL:
+            return {
+                RIGHT_STICK_UP: MappingAssignment(
+                    control=RIGHT_STICK_UP,
+                    label=self.tr("mapping.mouse_wheel_up"),
+                    action_kind=MAPPING_ACTION_MOUSE_WHEEL_UP,
+                ),
+                RIGHT_STICK_DOWN: MappingAssignment(
+                    control=RIGHT_STICK_DOWN,
+                    label=self.tr("mapping.mouse_wheel_down"),
+                    action_kind=MAPPING_ACTION_MOUSE_WHEEL_DOWN,
+                ),
+                RIGHT_STICK_LEFT: MappingAssignment(control=RIGHT_STICK_LEFT),
+                RIGHT_STICK_RIGHT: MappingAssignment(control=RIGHT_STICK_RIGHT),
+            }
+        if normalized_mode == RIGHT_STICK_MODE_WHEEL_STEP_4WAY:
+            return {
+                RIGHT_STICK_UP: MappingAssignment(
+                    control=RIGHT_STICK_UP,
+                    label=self.tr("mapping.mouse_wheel_up"),
+                    action_kind=MAPPING_ACTION_MOUSE_WHEEL_UP,
+                ),
+                RIGHT_STICK_DOWN: MappingAssignment(
+                    control=RIGHT_STICK_DOWN,
+                    label=self.tr("mapping.mouse_wheel_down"),
+                    action_kind=MAPPING_ACTION_MOUSE_WHEEL_DOWN,
+                ),
+                RIGHT_STICK_LEFT: MappingAssignment(
+                    control=RIGHT_STICK_LEFT,
+                    label=self.tr("mapping.mouse_wheel_left"),
+                    action_kind=MAPPING_ACTION_MOUSE_WHEEL_LEFT,
+                ),
+                RIGHT_STICK_RIGHT: MappingAssignment(
+                    control=RIGHT_STICK_RIGHT,
+                    label=self.tr("mapping.mouse_wheel_right"),
+                    action_kind=MAPPING_ACTION_MOUSE_WHEEL_RIGHT,
+                ),
+            }
+        if normalized_mode == RIGHT_STICK_MODE_MOUSE_MOVE:
+            return {
+                RIGHT_STICK_UP: MappingAssignment(control=RIGHT_STICK_UP, label="Mouse Up", action_kind=MAPPING_ACTION_MOUSE_MOVE),
+                RIGHT_STICK_DOWN: MappingAssignment(control=RIGHT_STICK_DOWN, label="Mouse Down", action_kind=MAPPING_ACTION_MOUSE_MOVE),
+                RIGHT_STICK_LEFT: MappingAssignment(control=RIGHT_STICK_LEFT, label="Mouse Left", action_kind=MAPPING_ACTION_MOUSE_MOVE),
+                RIGHT_STICK_RIGHT: MappingAssignment(control=RIGHT_STICK_RIGHT, label="Mouse Right", action_kind=MAPPING_ACTION_MOUSE_MOVE),
+            }
+        if normalized_mode == RIGHT_STICK_MODE_CONTINUOUS_SCROLL:
+            return {
+                RIGHT_STICK_UP: MappingAssignment(control=RIGHT_STICK_UP, label="Scroll Up", action_kind=MAPPING_ACTION_MOUSE_SCROLL),
+                RIGHT_STICK_DOWN: MappingAssignment(control=RIGHT_STICK_DOWN, label="Scroll Down", action_kind=MAPPING_ACTION_MOUSE_SCROLL),
+                RIGHT_STICK_LEFT: MappingAssignment(control=RIGHT_STICK_LEFT, label="Scroll Left", action_kind=MAPPING_ACTION_MOUSE_SCROLL),
+                RIGHT_STICK_RIGHT: MappingAssignment(control=RIGHT_STICK_RIGHT, label="Scroll Right", action_kind=MAPPING_ACTION_MOUSE_SCROLL),
+            }
+        return {
+            RIGHT_STICK_UP: MappingAssignment(control=RIGHT_STICK_UP),
+            RIGHT_STICK_DOWN: MappingAssignment(control=RIGHT_STICK_DOWN),
+            RIGHT_STICK_LEFT: MappingAssignment(control=RIGHT_STICK_LEFT),
+            RIGHT_STICK_RIGHT: MappingAssignment(control=RIGHT_STICK_RIGHT),
+        }
 
     def _sorted_devices(self) -> List[DeviceProfile]:
         connected_ids = set(self._raw_states)

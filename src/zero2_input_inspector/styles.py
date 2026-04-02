@@ -45,6 +45,12 @@ THEME_DEFINITIONS: Dict[str, ThemeDefinition] = {
             "frame_text": "#2C3B4E",
             "frame_muted": "#5F6C7A",
             "table_alt": "#FAFBFC",
+            "status_connected_bg": "#C85A5A",
+            "status_connected_text": "#FFFFFF",
+            "status_connected_border": "#C85A5A",
+            "status_disconnected_bg": "#F6EFD9",
+            "status_disconnected_text": "#2C3B4E",
+            "status_disconnected_border": "#C6A24A",
         },
     ),
     "gquuuuuux": ThemeDefinition(
@@ -77,6 +83,12 @@ THEME_DEFINITIONS: Dict[str, ThemeDefinition] = {
             "frame_text": "#F3F8FD",
             "frame_muted": "#D5E3F1",
             "table_alt": "#EAF2FA",
+            "status_connected_bg": "#B1263A",
+            "status_connected_text": "#FFFFFF",
+            "status_connected_border": "#B1263A",
+            "status_disconnected_bg": "#F9E5C8",
+            "status_disconnected_text": "#1E3553",
+            "status_disconnected_border": "#D88A1E",
         },
     ),
     "midnight_dark": ThemeDefinition(
@@ -109,6 +121,12 @@ THEME_DEFINITIONS: Dict[str, ThemeDefinition] = {
             "frame_text": "#F2F6FB",
             "frame_muted": "#B5C0D2",
             "table_alt": "#182335",
+            "status_connected_bg": "#F16B6B",
+            "status_connected_text": "#FFFFFF",
+            "status_connected_border": "#F16B6B",
+            "status_disconnected_bg": "#40351A",
+            "status_disconnected_text": "#F2F6FB",
+            "status_disconnected_border": "#F0C95E",
         },
     ),
     "graphite_neutral": ThemeDefinition(
@@ -141,6 +159,12 @@ THEME_DEFINITIONS: Dict[str, ThemeDefinition] = {
             "frame_text": "#223443",
             "frame_muted": "#596678",
             "table_alt": "#F7F9FC",
+            "status_connected_bg": "#C85D5D",
+            "status_connected_text": "#FFFFFF",
+            "status_connected_border": "#C85D5D",
+            "status_disconnected_bg": "#F4EDDA",
+            "status_disconnected_text": "#223443",
+            "status_disconnected_border": "#C4A04C",
         },
     ),
     "forest_tech": ThemeDefinition(
@@ -173,6 +197,12 @@ THEME_DEFINITIONS: Dict[str, ThemeDefinition] = {
             "frame_text": "#16453C",
             "frame_muted": "#52655E",
             "table_alt": "#F4FBF7",
+            "status_connected_bg": "#C95757",
+            "status_connected_text": "#FFFFFF",
+            "status_connected_border": "#C95757",
+            "status_disconnected_bg": "#F3EED8",
+            "status_disconnected_text": "#16453C",
+            "status_disconnected_border": "#C0A44A",
         },
     ),
 }
@@ -323,17 +353,17 @@ QLabel#ToolbarHint {{
     color: {frame_muted};
 }}
 QLabel#ConnectedPill {{
-    color: #FFFFFF;
-    background: {accent_red};
-    border: 1px solid {accent_red};
+    color: {status_connected_text};
+    background: {status_connected_bg};
+    border: 1px solid {status_connected_border};
     border-radius: 11px;
     padding: 2px 9px;
     font-weight: 600;
 }}
 QLabel#DisconnectedPill {{
-    color: {frame_text};
-    background: {bg_elevated};
-    border: 1px solid {accent_amber};
+    color: {status_disconnected_text};
+    background: {status_disconnected_bg};
+    border: 1px solid {status_disconnected_border};
     border-radius: 11px;
     padding: 2px 9px;
     font-weight: 600;

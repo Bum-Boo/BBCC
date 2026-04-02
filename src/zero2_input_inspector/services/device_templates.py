@@ -89,6 +89,7 @@ class DeviceTemplate:
     raw_fallback: Optional[RawFallbackLayout] = None
     name_match_requires_standard_controller: bool = False
     allow_shape_only_match: bool = True
+    show_all_controls_when_unverified: bool = False
 
 
 POSITION_STANDARD_CONTROL_MAP = {
@@ -355,6 +356,32 @@ XBOX_TEMPLATE = DeviceTemplate(
     allow_shape_only_match=False,
 )
 
+XBOX_FALLBACK_TEMPLATE = DeviceTemplate(
+    family_id="xbox",
+    title="Xbox Controller",
+    diagram_kind="xbox",
+    has_exact_diagram=False,
+    name_tokens=("xbox", "xinput", "x-input"),
+    guid_fragments=(),
+    shape_patterns=(
+        DeviceShapePattern(axes_counts=(6,), button_counts=(10, 11), hat_counts=(1,)),
+    ),
+    visible_controls=XBOX_VISIBLE_CONTROLS,
+    control_labels=XBOX_CONTROL_LABELS,
+    standard_axis_map=XBOX_STANDARD_AXIS_MAP,
+    standard_control_map=POSITION_STANDARD_CONTROL_MAP,
+    raw_fallback=RawFallbackLayout(
+        button_map=XBOX_BUTTON_MAP,
+        trigger_axes={2: LEFT_TRIGGER, 5: RIGHT_TRIGGER},
+        left_stick_axes=(0, 1),
+        right_stick_axes=(3, 4),
+        dpad_hat_index=0,
+    ),
+    name_match_requires_standard_controller=False,
+    allow_shape_only_match=True,
+    show_all_controls_when_unverified=True,
+)
+
 GENERIC_STANDARD_TEMPLATE = DeviceTemplate(
     family_id="standard_controller",
     title="Standard Controller",
@@ -384,6 +411,7 @@ UNKNOWN_DEVICE_TEMPLATE = DeviceTemplate(
 SUPPORTED_DEVICE_TEMPLATES = (
     ZERO2_TEMPLATE,
     XBOX_TEMPLATE,
+    XBOX_FALLBACK_TEMPLATE,
 )
 
 KNOWN_DEVICE_TEMPLATES = SUPPORTED_DEVICE_TEMPLATES + (
@@ -391,7 +419,6 @@ KNOWN_DEVICE_TEMPLATES = SUPPORTED_DEVICE_TEMPLATES + (
     UNKNOWN_DEVICE_TEMPLATE,
 )
 
-DEVICE_TEMPLATES_BY_FAMILY = {
-    template.family_id: template
-    for template in KNOWN_DEVICE_TEMPLATES
-}
+DEVICE_TEMPLATES_BY_FAMILY = {}
+for template in KNOWN_DEVICE_TEMPLATES:
+    DEVICE_TEMPLATES_BY_FAMILY.setdefault(template.family_id, template)

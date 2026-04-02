@@ -29,6 +29,7 @@ from .controls import (
     RIGHT_STICK_PRESS,
     RIGHT_STICK_RIGHT,
     RIGHT_STICK_UP,
+    RIGHT_STICK_MODE,
     RIGHT_TRIGGER,
     R,
     SELECT,
@@ -40,6 +41,8 @@ MAX_PRESET_COUNT = 5
 MIN_PRESET_COUNT = 1
 DEFAULT_PRESET_COUNT = 3
 DEFAULT_XBOX_FAMILY_ID = "xbox"
+DEFAULT_SCROLL_DEADZONE = 0.32
+DEFAULT_SCROLL_ACTIVATION_THRESHOLD = 0.6
 LEGACY_FALLBACK_PROFILE_NAMES = {
     DEFAULT_FALLBACK_PROFILE_NAME.casefold(),
     "global",
@@ -57,6 +60,22 @@ MAPPING_ACTION_MOUSE_WHEEL_UP = "mouse_wheel_up"
 MAPPING_ACTION_MOUSE_WHEEL_DOWN = "mouse_wheel_down"
 MAPPING_ACTION_MOUSE_WHEEL_LEFT = "mouse_wheel_left"
 MAPPING_ACTION_MOUSE_WHEEL_RIGHT = "mouse_wheel_right"
+MAPPING_ACTION_STICK_MODE = "stick_mode"
+
+RIGHT_STICK_MODE_DISABLED = "disabled"
+RIGHT_STICK_MODE_MOUSE_MOVE = "mouse_move"
+RIGHT_STICK_MODE_WHEEL_STEP_VERTICAL = "wheel_step_vertical"
+RIGHT_STICK_MODE_WHEEL_STEP_4WAY = "wheel_step_4way"
+RIGHT_STICK_MODE_CONTINUOUS_SCROLL = "continuous_scroll"
+RIGHT_STICK_MODE_CUSTOM_ADVANCED = "custom_advanced"
+RIGHT_STICK_MODES = {
+    RIGHT_STICK_MODE_DISABLED,
+    RIGHT_STICK_MODE_MOUSE_MOVE,
+    RIGHT_STICK_MODE_WHEEL_STEP_VERTICAL,
+    RIGHT_STICK_MODE_WHEEL_STEP_4WAY,
+    RIGHT_STICK_MODE_CONTINUOUS_SCROLL,
+    RIGHT_STICK_MODE_CUSTOM_ADVANCED,
+}
 
 MAPPING_ACTION_KINDS = {
     MAPPING_ACTION_KEYBOARD,
@@ -70,6 +89,7 @@ MAPPING_ACTION_KINDS = {
     MAPPING_ACTION_MOUSE_WHEEL_DOWN,
     MAPPING_ACTION_MOUSE_WHEEL_LEFT,
     MAPPING_ACTION_MOUSE_WHEEL_RIGHT,
+    MAPPING_ACTION_STICK_MODE,
 }
 
 
@@ -95,18 +115,78 @@ class MappingMigrationRule:
 
 
 MEDIA_FALLBACK_MAPPING_MIGRATION_RULES: Tuple[MappingMigrationRule, ...] = (
-    MappingMigrationRule(
-        old_shortcut="Shift+P",
-        old_label="Previous Video",
-        new_shortcut="Alt+Left",
-        new_label="Browser Back",
-    ),
-    MappingMigrationRule(
-        old_shortcut="Shift+N",
-        old_label="Next Video",
-        new_shortcut="Alt+Right",
-        new_label="Browser Forward",
-    ),
+)
+
+
+def _mapping_assignment(
+    control: str,
+    shortcut: str = "",
+    label: str = "",
+    action_kind: str = MAPPING_ACTION_KEYBOARD,
+) -> MappingAssignment:
+    return MappingAssignment(
+        control=control,
+        shortcut=str(shortcut),
+        label=str(label),
+        action_kind=str(action_kind),
+    )
+
+
+XBOX_MEDIA_FALLBACK_DEFAULT_ASSIGNMENTS: Dict[str, MappingAssignment] = {
+    FACE_SOUTH: _mapping_assignment(FACE_SOUTH, "", "Left Click", MAPPING_ACTION_MOUSE_LEFT_CLICK),
+    FACE_EAST: _mapping_assignment(FACE_EAST, "Alt+Left", "Browser Back"),
+    FACE_WEST: _mapping_assignment(FACE_WEST, "J", "Back 10s"),
+    FACE_NORTH: _mapping_assignment(FACE_NORTH, "K", "Play/Pause"),
+    L: _mapping_assignment(L, "Left", "Back 5s"),
+    R: _mapping_assignment(R, "Right", "Forward 5s"),
+    LEFT_TRIGGER: _mapping_assignment(LEFT_TRIGGER, "Down", "Volume Down"),
+    RIGHT_TRIGGER: _mapping_assignment(RIGHT_TRIGGER, "Up", "Volume Up"),
+    SELECT: _mapping_assignment(SELECT, "M", "Mute"),
+    START: _mapping_assignment(START, "F", "Fullscreen"),
+    DPAD_LEFT: _mapping_assignment(DPAD_LEFT, "0", "To Start"),
+    DPAD_RIGHT: _mapping_assignment(DPAD_RIGHT, "Shift+N", "Next Video"),
+    DPAD_UP: _mapping_assignment(DPAD_UP, "C", "Captions"),
+    DPAD_DOWN: _mapping_assignment(DPAD_DOWN, "/", "Search"),
+    LEFT_STICK_PRESS: _mapping_assignment(LEFT_STICK_PRESS, "Tab", "Focus Next"),
+    RIGHT_STICK_PRESS: _mapping_assignment(RIGHT_STICK_PRESS, "Enter", "Activate"),
+    LEFT_STICK_LEFT: _mapping_assignment(LEFT_STICK_LEFT, "", "Mouse Left", MAPPING_ACTION_MOUSE_MOVE),
+    LEFT_STICK_RIGHT: _mapping_assignment(LEFT_STICK_RIGHT, "", "Mouse Right", MAPPING_ACTION_MOUSE_MOVE),
+    LEFT_STICK_UP: _mapping_assignment(LEFT_STICK_UP, "", "Mouse Up", MAPPING_ACTION_MOUSE_MOVE),
+    LEFT_STICK_DOWN: _mapping_assignment(LEFT_STICK_DOWN, "", "Mouse Down", MAPPING_ACTION_MOUSE_MOVE),
+}
+
+XBOX_MEDIA_FALLBACK_LEGACY_ASSIGNMENTS: Dict[str, MappingAssignment] = {
+    FACE_SOUTH: _mapping_assignment(FACE_SOUTH, "", "Left Click", MAPPING_ACTION_MOUSE_LEFT_CLICK),
+    FACE_NORTH: _mapping_assignment(FACE_NORTH, "", "Double Click", MAPPING_ACTION_MOUSE_DOUBLE_CLICK),
+    FACE_WEST: _mapping_assignment(FACE_WEST, "", "Right Click", MAPPING_ACTION_MOUSE_RIGHT_CLICK),
+    FACE_EAST: _mapping_assignment(FACE_EAST, "Alt+Left", "Browser Back"),
+    DPAD_LEFT: _mapping_assignment(DPAD_LEFT, "Left", "Back 5s"),
+    DPAD_RIGHT: _mapping_assignment(DPAD_RIGHT, "Right", "Forward 5s"),
+    DPAD_UP: _mapping_assignment(DPAD_UP, "Up", "Volume Up"),
+    DPAD_DOWN: _mapping_assignment(DPAD_DOWN, "Down", "Volume Down"),
+    L: _mapping_assignment(L, "J", "Back 10s"),
+    R: _mapping_assignment(R, "L", "Forward 10s"),
+    SELECT: _mapping_assignment(SELECT, "M", "Mute"),
+    START: _mapping_assignment(START, "F", "Fullscreen"),
+    LEFT_TRIGGER: _mapping_assignment(LEFT_TRIGGER, "Space", "Play/Pause"),
+    RIGHT_TRIGGER: _mapping_assignment(RIGHT_TRIGGER, "K", "Play/Pause Alt"),
+    LEFT_STICK_PRESS: _mapping_assignment(LEFT_STICK_PRESS, "Tab", "Focus Next"),
+    RIGHT_STICK_PRESS: _mapping_assignment(RIGHT_STICK_PRESS, "Enter", "Activate"),
+    LEFT_STICK_LEFT: _mapping_assignment(LEFT_STICK_LEFT, "", "Mouse Left", MAPPING_ACTION_MOUSE_MOVE),
+    LEFT_STICK_RIGHT: _mapping_assignment(LEFT_STICK_RIGHT, "", "Mouse Right", MAPPING_ACTION_MOUSE_MOVE),
+    LEFT_STICK_UP: _mapping_assignment(LEFT_STICK_UP, "", "Mouse Up", MAPPING_ACTION_MOUSE_MOVE),
+    LEFT_STICK_DOWN: _mapping_assignment(LEFT_STICK_DOWN, "", "Mouse Down", MAPPING_ACTION_MOUSE_MOVE),
+    RIGHT_STICK_LEFT: _mapping_assignment(RIGHT_STICK_LEFT, "", "Scroll Left", MAPPING_ACTION_MOUSE_SCROLL),
+    RIGHT_STICK_RIGHT: _mapping_assignment(RIGHT_STICK_RIGHT, "", "Scroll Right", MAPPING_ACTION_MOUSE_SCROLL),
+    RIGHT_STICK_UP: _mapping_assignment(RIGHT_STICK_UP, "", "Scroll Up", MAPPING_ACTION_MOUSE_SCROLL),
+    RIGHT_STICK_DOWN: _mapping_assignment(RIGHT_STICK_DOWN, "", "Scroll Down", MAPPING_ACTION_MOUSE_SCROLL),
+}
+
+RIGHT_STICK_DIRECTION_ASSIGNMENTS = (
+    RIGHT_STICK_LEFT,
+    RIGHT_STICK_RIGHT,
+    RIGHT_STICK_UP,
+    RIGHT_STICK_DOWN,
 )
 
 
@@ -115,6 +195,7 @@ class Preset:
     preset_id: str
     name: str
     mappings: Dict[str, MappingAssignment] = field(default_factory=dict)
+    right_stick_mode: str = RIGHT_STICK_MODE_CUSTOM_ADVANCED
 
     def assignment_for(self, control: str) -> MappingAssignment:
         return self.mappings.get(control, MappingAssignment(control=control))
@@ -131,6 +212,8 @@ class AppProfile:
     mouse_sensitivity: float = 1.0
     scroll_sensitivity: float = 1.0
     analog_deadzone: float = 0.16
+    scroll_deadzone: float = DEFAULT_SCROLL_DEADZONE
+    scroll_activation_threshold: float = DEFAULT_SCROLL_ACTIVATION_THRESHOLD
     analog_curve: float = 1.7
     slow_speed_multiplier: float = 0.45
     fast_speed_multiplier: float = 1.75
@@ -269,32 +352,8 @@ def build_default_media_presets_for_family(family_id: str = "") -> List[Preset]:
         preset_specs = [
             (
                 DEFAULT_FALLBACK_PROFILE_NAME,
-                {
-                    FACE_SOUTH: ("", "Left Click", MAPPING_ACTION_MOUSE_LEFT_CLICK),
-                    FACE_NORTH: ("", "Double Click", MAPPING_ACTION_MOUSE_DOUBLE_CLICK),
-                    FACE_WEST: ("", "Right Click", MAPPING_ACTION_MOUSE_RIGHT_CLICK),
-                    FACE_EAST: ("Alt+Left", "Browser Back", MAPPING_ACTION_KEYBOARD),
-                    DPAD_LEFT: ("Left", "Back 5s", MAPPING_ACTION_KEYBOARD),
-                    DPAD_RIGHT: ("Right", "Forward 5s", MAPPING_ACTION_KEYBOARD),
-                    DPAD_UP: ("Up", "Volume Up", MAPPING_ACTION_KEYBOARD),
-                    DPAD_DOWN: ("Down", "Volume Down", MAPPING_ACTION_KEYBOARD),
-                    L: ("J", "Back 10s", MAPPING_ACTION_KEYBOARD),
-                    R: ("L", "Forward 10s", MAPPING_ACTION_KEYBOARD),
-                    SELECT: ("M", "Mute", MAPPING_ACTION_KEYBOARD),
-                    START: ("F", "Fullscreen", MAPPING_ACTION_KEYBOARD),
-                    LEFT_TRIGGER: ("Space", "Play/Pause", MAPPING_ACTION_KEYBOARD),
-                    RIGHT_TRIGGER: ("K", "Play/Pause Alt", MAPPING_ACTION_KEYBOARD),
-                    LEFT_STICK_PRESS: ("Tab", "Focus Next", MAPPING_ACTION_KEYBOARD),
-                    RIGHT_STICK_PRESS: ("Enter", "Activate", MAPPING_ACTION_KEYBOARD),
-                    LEFT_STICK_LEFT: ("", "Mouse Left", MAPPING_ACTION_MOUSE_MOVE),
-                    LEFT_STICK_RIGHT: ("", "Mouse Right", MAPPING_ACTION_MOUSE_MOVE),
-                    LEFT_STICK_UP: ("", "Mouse Up", MAPPING_ACTION_MOUSE_MOVE),
-                    LEFT_STICK_DOWN: ("", "Mouse Down", MAPPING_ACTION_MOUSE_MOVE),
-                    RIGHT_STICK_LEFT: ("", "Scroll Left", MAPPING_ACTION_MOUSE_SCROLL),
-                    RIGHT_STICK_RIGHT: ("", "Scroll Right", MAPPING_ACTION_MOUSE_SCROLL),
-                    RIGHT_STICK_UP: ("", "Scroll Up", MAPPING_ACTION_MOUSE_SCROLL),
-                    RIGHT_STICK_DOWN: ("", "Scroll Down", MAPPING_ACTION_MOUSE_SCROLL),
-                },
+                dict(XBOX_MEDIA_FALLBACK_DEFAULT_ASSIGNMENTS),
+                RIGHT_STICK_MODE_WHEEL_STEP_4WAY,
             ),
         ]
         return _build_presets_from_specs(preset_specs)
@@ -312,7 +371,7 @@ def build_default_media_presets_for_family(family_id: str = "") -> List[Preset]:
                 DPAD_UP: ("Arrow Up", "Volume Up", MAPPING_ACTION_KEYBOARD),
                 DPAD_DOWN: ("Arrow Down", "Volume Down", MAPPING_ACTION_KEYBOARD),
                 L: ("Alt+Left", "Browser Back", MAPPING_ACTION_KEYBOARD),
-                R: ("Alt+Right", "Browser Forward", MAPPING_ACTION_KEYBOARD),
+                R: ("Shift+N", "Next Video", MAPPING_ACTION_KEYBOARD),
                 SELECT: ("Tab", "Focus Next", MAPPING_ACTION_KEYBOARD),
                 START: ("Enter", "Activate", MAPPING_ACTION_KEYBOARD),
             },
@@ -380,8 +439,19 @@ def build_blank_preset(name: str) -> Preset:
 
 def _build_presets_from_specs(preset_specs) -> List[Preset]:
     presets: List[Preset] = []
-    for preset_name, mappings in preset_specs:
-        preset = Preset(preset_id=_new_id("preset"), name=preset_name)
+    for preset_spec in preset_specs:
+        if len(preset_spec) == 2:
+            preset_name, mappings = preset_spec
+            right_stick_mode = RIGHT_STICK_MODE_CUSTOM_ADVANCED
+        elif len(preset_spec) == 3:
+            preset_name, mappings, right_stick_mode = preset_spec
+        else:
+            raise ValueError("Unsupported preset spec")
+        preset = Preset(
+            preset_id=_new_id("preset"),
+            name=preset_name,
+            right_stick_mode=normalize_right_stick_mode(right_stick_mode),
+        )
         for control, mapping_spec in mappings.items():
             if isinstance(mapping_spec, MappingAssignment):
                 assignment = mapping_spec
@@ -431,7 +501,37 @@ def default_assignment_for_process(
     presets = build_default_presets_for_process(process_name, family_id)
     canonical_control = str(control)
     if 0 <= preset_index < len(presets):
-        default_assignment = presets[preset_index].assignment_for(canonical_control)
+        preset = presets[preset_index]
+    else:
+        preset = None
+    if canonical_control == RIGHT_STICK_MODE:
+        if preset is not None:
+            return MappingAssignment(
+                control=canonical_control,
+                shortcut=preset.right_stick_mode,
+                label="",
+                action_kind=MAPPING_ACTION_STICK_MODE,
+            )
+        return MappingAssignment(
+            control=canonical_control,
+            shortcut=RIGHT_STICK_MODE_CUSTOM_ADVANCED,
+            label="",
+            action_kind=MAPPING_ACTION_STICK_MODE,
+        )
+    if (
+        canonical_control in RIGHT_STICK_DIRECTION_ASSIGNMENTS
+        and preset is not None
+        and normalize_right_stick_mode(preset.right_stick_mode) != RIGHT_STICK_MODE_CUSTOM_ADVANCED
+    ):
+        if 0 <= preset_index < len(presets):
+            return MappingAssignment(
+                control=RIGHT_STICK_MODE,
+                shortcut=preset.right_stick_mode,
+                label="",
+                action_kind=MAPPING_ACTION_STICK_MODE,
+            )
+    if preset is not None:
+        default_assignment = preset.assignment_for(canonical_control)
         return MappingAssignment(
             control=canonical_control,
             shortcut=default_assignment.shortcut,
@@ -460,24 +560,14 @@ def migrate_preset_mappings(preset: Preset, rules: Tuple[MappingMigrationRule, .
 def migrate_media_fallback_profile(app_profile: AppProfile) -> bool:
     if not is_media_fallback_profile(app_profile):
         return False
+    normalized_family_id = (app_profile.family_id or "").strip().lower()
+    if normalized_family_id != DEFAULT_XBOX_FAMILY_ID and not _looks_like_xbox_media_fallback_profile(app_profile):
+        return False
     migrated = False
     for preset in app_profile.presets:
-        migrated = migrate_preset_mappings(preset, MEDIA_FALLBACK_MAPPING_MIGRATION_RULES) or migrated
-    default_presets = build_default_media_presets_for_family(app_profile.family_id)
-    for preset_index, preset in enumerate(app_profile.presets):
-        if preset_index >= len(default_presets):
-            break
-        default_preset = default_presets[preset_index]
-        for control, default_assignment in default_preset.mappings.items():
-            if control in preset.mappings:
-                continue
-            preset.mappings[control] = MappingAssignment(
-                control=control,
-                shortcut=default_assignment.shortcut,
-                label=default_assignment.label,
-                action_kind=default_assignment.action_kind,
-            )
-            migrated = True
+        migrated = _migrate_xbox_media_fallback_preset(preset) or migrated
+    if migrated or normalized_family_id != DEFAULT_XBOX_FAMILY_ID:
+        app_profile.family_id = DEFAULT_XBOX_FAMILY_ID
     return migrated
 
 
@@ -486,6 +576,13 @@ def normalize_mapping_action_kind(action_kind: str) -> str:
     if normalized in MAPPING_ACTION_KINDS:
         return normalized
     return MAPPING_ACTION_KEYBOARD
+
+
+def normalize_right_stick_mode(mode: str) -> str:
+    normalized = str(mode or "").strip().lower()
+    if normalized in RIGHT_STICK_MODES:
+        return normalized
+    return RIGHT_STICK_MODE_CUSTOM_ADVANCED
 
 
 def default_selected_app_profile_id(app_profiles: List[AppProfile], family_id: str = "") -> str:
@@ -519,3 +616,104 @@ def _mapping_matches_rule(mapping: MappingAssignment, rule: MappingMigrationRule
 
 def _normalize_label(text: str) -> str:
     return str(text or "").strip().casefold()
+
+
+def _assignment_matches_expected(mapping: MappingAssignment, expected: Optional[MappingAssignment]) -> bool:
+    if expected is None:
+        return False
+    return (
+        normalize_shortcut_text(mapping.shortcut) == normalize_shortcut_text(expected.shortcut)
+        and _normalize_label(mapping.label) == _normalize_label(expected.label)
+        and normalize_mapping_action_kind(mapping.action_kind) == normalize_mapping_action_kind(expected.action_kind)
+    )
+
+
+def _assignment_matches_semantics(mapping: MappingAssignment, expected: Optional[MappingAssignment]) -> bool:
+    if expected is None:
+        return False
+    return (
+        normalize_shortcut_text(mapping.shortcut) == normalize_shortcut_text(expected.shortcut)
+        and normalize_mapping_action_kind(mapping.action_kind) == normalize_mapping_action_kind(expected.action_kind)
+    )
+
+
+def _copy_assignment(assignment: MappingAssignment) -> MappingAssignment:
+    return MappingAssignment(
+        control=assignment.control,
+        shortcut=assignment.shortcut,
+        label=assignment.label,
+        action_kind=assignment.action_kind,
+    )
+
+
+def _is_xbox_media_fallback_preset_legacy_compatible(preset: Preset) -> bool:
+    if normalize_right_stick_mode(preset.right_stick_mode) not in {
+        RIGHT_STICK_MODE_CUSTOM_ADVANCED,
+        RIGHT_STICK_MODE_WHEEL_STEP_VERTICAL,
+        RIGHT_STICK_MODE_WHEEL_STEP_4WAY,
+    }:
+        return False
+    known_controls = set(XBOX_MEDIA_FALLBACK_LEGACY_ASSIGNMENTS) | set(XBOX_MEDIA_FALLBACK_DEFAULT_ASSIGNMENTS)
+    for control, mapping in preset.mappings.items():
+        if control not in known_controls:
+            return False
+        legacy_assignment = XBOX_MEDIA_FALLBACK_LEGACY_ASSIGNMENTS.get(control)
+        new_assignment = XBOX_MEDIA_FALLBACK_DEFAULT_ASSIGNMENTS.get(control)
+        if _assignment_matches_semantics(mapping, legacy_assignment):
+            continue
+        if _assignment_matches_semantics(mapping, new_assignment):
+            continue
+        return False
+    return True
+
+
+def _looks_like_xbox_media_fallback_profile(app_profile: AppProfile) -> bool:
+    if not is_media_fallback_profile(app_profile):
+        return False
+    if not app_profile.presets:
+        return True
+    return all(_is_xbox_media_fallback_preset_legacy_compatible(preset) for preset in app_profile.presets)
+
+
+def _migrate_xbox_media_fallback_preset(preset: Preset) -> bool:
+    if not _is_xbox_media_fallback_preset_legacy_compatible(preset):
+        return False
+
+    migrated = False
+    target_mode = RIGHT_STICK_MODE_WHEEL_STEP_4WAY
+    if normalize_right_stick_mode(preset.right_stick_mode) != target_mode:
+        preset.right_stick_mode = target_mode
+        migrated = True
+    for control, legacy_assignment in XBOX_MEDIA_FALLBACK_LEGACY_ASSIGNMENTS.items():
+        current_assignment = preset.mappings.get(control)
+        new_assignment = XBOX_MEDIA_FALLBACK_DEFAULT_ASSIGNMENTS.get(control)
+        if current_assignment is None:
+            continue
+        if _assignment_matches_semantics(current_assignment, legacy_assignment):
+            if new_assignment is None:
+                preset.mappings.pop(control, None)
+            else:
+                preset.mappings[control] = _copy_assignment(new_assignment)
+            migrated = True
+            continue
+        if new_assignment is not None and _assignment_matches_semantics(current_assignment, new_assignment):
+            preset.mappings[control] = _copy_assignment(new_assignment)
+            migrated = True
+
+    for control, new_assignment in XBOX_MEDIA_FALLBACK_DEFAULT_ASSIGNMENTS.items():
+        if control in preset.mappings:
+            current_assignment = preset.mappings[control]
+            if _assignment_matches_semantics(current_assignment, new_assignment) and not _assignment_matches_expected(
+                current_assignment, new_assignment
+            ):
+                preset.mappings[control] = _copy_assignment(new_assignment)
+                migrated = True
+            continue
+        preset.mappings[control] = _copy_assignment(new_assignment)
+        migrated = True
+
+    for control in RIGHT_STICK_DIRECTION_ASSIGNMENTS:
+        if control in preset.mappings:
+            preset.mappings.pop(control, None)
+            migrated = True
+    return migrated

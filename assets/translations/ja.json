@@ -147,7 +147,7 @@
     "unknown_diagram_title": "正確なデバイス図はありません",
     "unknown_diagram_body": "デバイス固有の図が追加されるまではマッピング一覧を使ってください。",
     "unmapped_diagram_title": "信頼できるボタンマップがありません",
-    "unmapped_diagram_body": "Inspector を開いて生入力を確認してください。検証済みのコントロールマップが追加されるまではメインマッパーは無効です。",
+    "unmapped_diagram_body": "Inspector を開いて生入力を確認してください。フォールバックレイアウトの間もマッピング編集は有効です。",
     "unsupported_diagram": "このデバイスは現在、汎用コントロールマップを使っています。"
   },
   "theme_default_light": "デフォルトライト",

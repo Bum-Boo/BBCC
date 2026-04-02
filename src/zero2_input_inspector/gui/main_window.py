@@ -22,6 +22,12 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+from ..domain.controls import (
+    RIGHT_STICK_EFFECTIVE_DOWN,
+    RIGHT_STICK_EFFECTIVE_LEFT,
+    RIGHT_STICK_EFFECTIVE_RIGHT,
+    RIGHT_STICK_EFFECTIVE_UP,
+)
 from ..domain.profiles import (
     MAPPING_ACTION_KEYBOARD,
     MAPPING_ACTION_MOUSE_DOUBLE_CLICK,
@@ -34,6 +40,13 @@ from ..domain.profiles import (
     MAPPING_ACTION_MOUSE_WHEEL_LEFT,
     MAPPING_ACTION_MOUSE_WHEEL_RIGHT,
     MAPPING_ACTION_MOUSE_WHEEL_UP,
+    MAPPING_ACTION_STICK_MODE,
+    RIGHT_STICK_MODE_CONTINUOUS_SCROLL,
+    RIGHT_STICK_MODE_CUSTOM_ADVANCED,
+    RIGHT_STICK_MODE_DISABLED,
+    RIGHT_STICK_MODE_MOUSE_MOVE,
+    RIGHT_STICK_MODE_WHEEL_STEP_4WAY,
+    RIGHT_STICK_MODE_WHEEL_STEP_VERTICAL,
 )
 from ..domain.state import MappingRow, UiSnapshot
 from ..identity import APP_PRODUCT_NAME
@@ -50,6 +63,7 @@ from .widgets import ControllerDiagramWidget, DeviceListWidget, ShortcutEdit, St
 EDITOR_MAPPING_TYPE_SHORTCUT = "shortcut"
 EDITOR_MAPPING_TYPE_SPECIAL = "special"
 EDITOR_MAPPING_TYPE_MOUSE = "mouse"
+EDITOR_MAPPING_TYPE_STICK = "stick"
 
 SPECIAL_KEY_GROUPS: Tuple[Tuple[str, Tuple[Tuple[str, str], ...]], ...] = (
     (
@@ -94,6 +108,15 @@ MOUSE_ACTION_DEFINITIONS: Tuple[Tuple[str, str], ...] = (
     ("mapping.mouse_wheel_down", MAPPING_ACTION_MOUSE_WHEEL_DOWN),
     ("mapping.mouse_wheel_left", MAPPING_ACTION_MOUSE_WHEEL_LEFT),
     ("mapping.mouse_wheel_right", MAPPING_ACTION_MOUSE_WHEEL_RIGHT),
+)
+
+STICK_MODE_DEFINITIONS: Tuple[Tuple[str, str], ...] = (
+    ("mapping.stick_mode_disabled", RIGHT_STICK_MODE_DISABLED),
+    ("mapping.stick_mode_mouse_move", RIGHT_STICK_MODE_MOUSE_MOVE),
+    ("mapping.stick_mode_wheel_step_4way", RIGHT_STICK_MODE_WHEEL_STEP_4WAY),
+    ("mapping.stick_mode_wheel_step_vertical", RIGHT_STICK_MODE_WHEEL_STEP_VERTICAL),
+    ("mapping.stick_mode_continuous_scroll", RIGHT_STICK_MODE_CONTINUOUS_SCROLL),
+    ("mapping.stick_mode_custom_advanced", RIGHT_STICK_MODE_CUSTOM_ADVANCED),
 )
 
 DEVICE_DRAWER_WIDTH = 280
@@ -437,10 +460,15 @@ class MainWindow(QMainWindow):
         initial_mouse_items = self._mouse_action_items()
         self._edit_mouse.sync_items(initial_mouse_items, initial_mouse_items[0][1] if initial_mouse_items else None)
         self._edit_mouse.currentIndexChanged.connect(self._on_mapping_picker_changed)
+        self._edit_stick = StableComboBox(editor_card)
+        initial_stick_items = self._stick_mode_items()
+        self._edit_stick.sync_items(initial_stick_items, initial_stick_items[0][1] if initial_stick_items else None)
+        self._edit_stick.currentIndexChanged.connect(self._on_mapping_picker_changed)
         self._edit_value_stack = QStackedWidget(editor_card)
         self._edit_value_stack.addWidget(self._edit_shortcut)
         self._edit_value_stack.addWidget(self._edit_special)
         self._edit_value_stack.addWidget(self._edit_mouse)
+        self._edit_value_stack.addWidget(self._edit_stick)
         self._edit_label_label = QLabel(editor_card)
         self._edit_label = QLineEdit(editor_card)
         self._save_mapping_button = QPushButton(editor_card)
@@ -514,6 +542,7 @@ class MainWindow(QMainWindow):
             (self._service.tr("mapping_type_shortcut"), EDITOR_MAPPING_TYPE_SHORTCUT),
             (self._service.tr("mapping_type_special"), EDITOR_MAPPING_TYPE_SPECIAL),
             (self._service.tr("mapping_type_mouse"), EDITOR_MAPPING_TYPE_MOUSE),
+            (self._service.tr("mapping_type_stick"), EDITOR_MAPPING_TYPE_STICK),
         )
 
     def _special_key_items(self) -> Tuple[Tuple[str, str], ...]:
@@ -526,6 +555,9 @@ class MainWindow(QMainWindow):
 
     def _mouse_action_items(self) -> Tuple[Tuple[str, str], ...]:
         return tuple((self._service.tr(label_key), action_kind) for label_key, action_kind in MOUSE_ACTION_DEFINITIONS)
+
+    def _stick_mode_items(self) -> Tuple[Tuple[str, str], ...]:
+        return tuple((self._service.tr(label_key), mode) for label_key, mode in STICK_MODE_DEFINITIONS)
 
     def _retranslate(self) -> None:
         self.setWindowTitle(APP_PRODUCT_NAME)
@@ -571,6 +603,7 @@ class MainWindow(QMainWindow):
         self._edit_type_combo.sync_items(self._mapping_type_items(), self._edit_type_combo.currentData())
         self._edit_special.sync_items(self._special_key_items(), self._edit_special.currentData())
         self._edit_mouse.sync_items(self._mouse_action_items(), self._edit_mouse.currentData())
+        self._edit_stick.sync_items(self._stick_mode_items(), self._edit_stick.currentData())
 
     def _update_toolbar(self, snapshot: UiSnapshot) -> None:
         selected_device = snapshot.selected_device_profile
@@ -637,6 +670,10 @@ class MainWindow(QMainWindow):
                 }.get(normalized_state.diagram_kind, "generic_layout")
                 placeholder_title = ""
                 placeholder_body = ""
+            elif normalized_state.device_family_id == "xbox":
+                note_key = "unsupported_diagram"
+                placeholder_title = ""
+                placeholder_body = ""
             elif normalized_state.has_canonical_mapping:
                 note_key = "unknown_layout_supported"
                 placeholder_title = self._service.tr("unknown_diagram_title")
@@ -677,6 +714,8 @@ class MainWindow(QMainWindow):
                     "zero2": "zero2_exact",
                     "xbox": "xbox_exact",
                 }.get(template.diagram_kind, "generic_layout")
+                if template.family_id == "xbox" and not template.has_exact_diagram:
+                    note_key = "unsupported_diagram"
                 presentation_kind = template.diagram_kind
                 control_labels = dict(template.control_labels)
                 visible_controls = template.visible_controls
@@ -710,6 +749,9 @@ class MainWindow(QMainWindow):
 
     def _update_mapping_table(self, rows) -> None:
         row_list = list(rows)
+        resolved_selected_control = self._resolve_row_control(self._selected_control, row_list)
+        if resolved_selected_control != self._selected_control:
+            self._selected_control = resolved_selected_control
         row_signature = tuple(
             (
                 row.control,
@@ -720,6 +762,7 @@ class MainWindow(QMainWindow):
                 row.action_text,
                 row.is_system_action,
                 row.system_text,
+                row.is_read_only,
             )
             for row in row_list
         )
@@ -816,6 +859,18 @@ class MainWindow(QMainWindow):
             self._edit_shortcut.setEnabled(False)
             self._edit_special.setEnabled(False)
             self._edit_mouse.setEnabled(False)
+            self._edit_stick.setEnabled(False)
+            self._edit_label.setEnabled(False)
+            self._save_mapping_button.setEnabled(False)
+            self._cancel_mapping_button.setEnabled(False)
+            self._reset_mapping_button.setEnabled(False)
+        elif selected_row.is_read_only:
+            self._editor_note.setText("Derived from Right Stick mode. Edit the Right Stick row to change this behavior.")
+            self._edit_type_combo.setEnabled(False)
+            self._edit_shortcut.setEnabled(False)
+            self._edit_special.setEnabled(False)
+            self._edit_mouse.setEnabled(False)
+            self._edit_stick.setEnabled(False)
             self._edit_label.setEnabled(False)
             self._save_mapping_button.setEnabled(False)
             self._cancel_mapping_button.setEnabled(False)
@@ -826,10 +881,13 @@ class MainWindow(QMainWindow):
             self._edit_shortcut.setEnabled(True)
             self._edit_special.setEnabled(True)
             self._edit_mouse.setEnabled(True)
-            self._edit_label.setEnabled(True)
+            self._edit_stick.setEnabled(True)
+            self._edit_label.setEnabled(selected_row.action_kind != MAPPING_ACTION_STICK_MODE)
             self._save_mapping_button.setEnabled(True)
             self._cancel_mapping_button.setEnabled(True)
             self._reset_mapping_button.setEnabled(True)
+        if selected_row.action_kind == MAPPING_ACTION_STICK_MODE:
+            self._set_line_edit_text(self._edit_label, "")
         self._edit_shortcut.setPlaceholderText(self._service.tr("mapping.shortcut_placeholder"))
         self._edit_label.setPlaceholderText("")
 
@@ -840,13 +898,16 @@ class MainWindow(QMainWindow):
         self._set_line_edit_text(self._edit_shortcut, "")
         special_items = self._special_key_items()
         mouse_items = self._mouse_action_items()
+        stick_items = self._stick_mode_items()
         self._set_combo_data(self._edit_special, special_items[0][1] if special_items else None)
         self._set_combo_data(self._edit_mouse, mouse_items[0][1] if mouse_items else None)
+        self._set_combo_data(self._edit_stick, stick_items[0][1] if stick_items else None)
         self._set_line_edit_text(self._edit_label, "")
         self._edit_type_combo.setEnabled(False)
         self._edit_shortcut.setEnabled(False)
         self._edit_special.setEnabled(False)
         self._edit_mouse.setEnabled(False)
+        self._edit_stick.setEnabled(False)
         self._edit_label.setEnabled(False)
         self._save_mapping_button.setEnabled(False)
         self._cancel_mapping_button.setEnabled(False)
@@ -864,12 +925,16 @@ class MainWindow(QMainWindow):
         if row.shortcut:
             self._set_combo_data(self._edit_special, normalize_shortcut_text(row.shortcut))
         self._set_combo_data(self._edit_mouse, row.action_kind)
+        if row.action_kind == MAPPING_ACTION_STICK_MODE:
+            self._set_combo_data(self._edit_stick, row.shortcut)
         if force:
             self._set_line_edit_text(self._edit_label, row.label)
         else:
             self._sync_line_edit(self._edit_label, row.label, "mapping_label")
 
     def _editor_type_for_row(self, row: MappingRow) -> str:
+        if row.action_kind == MAPPING_ACTION_STICK_MODE:
+            return EDITOR_MAPPING_TYPE_STICK
         if row.action_kind != MAPPING_ACTION_KEYBOARD:
             return EDITOR_MAPPING_TYPE_MOUSE
         normalized_shortcut = normalize_shortcut_text(row.shortcut)
@@ -897,6 +962,8 @@ class MainWindow(QMainWindow):
             self._edit_value_stack.setCurrentWidget(self._edit_special)
         elif current_type == EDITOR_MAPPING_TYPE_MOUSE:
             self._edit_value_stack.setCurrentWidget(self._edit_mouse)
+        elif current_type == EDITOR_MAPPING_TYPE_STICK:
+            self._edit_value_stack.setCurrentWidget(self._edit_stick)
         else:
             self._edit_value_stack.setCurrentWidget(self._edit_shortcut)
 
@@ -922,12 +989,36 @@ class MainWindow(QMainWindow):
             return None
         return next((row for row in self._snapshot.mapping_rows if row.control == self._selected_control), None)
 
+    def _resolve_row_control(self, control: str, rows) -> str:
+        canonical_control = str(control or "")
+        if not canonical_control:
+            return ""
+        row_controls = {row.control for row in rows}
+        if canonical_control in row_controls:
+            return canonical_control
+        if canonical_control == "RIGHT_STICK_UP" and RIGHT_STICK_EFFECTIVE_UP in row_controls:
+            return RIGHT_STICK_EFFECTIVE_UP
+        if canonical_control == "RIGHT_STICK_DOWN" and RIGHT_STICK_EFFECTIVE_DOWN in row_controls:
+            return RIGHT_STICK_EFFECTIVE_DOWN
+        if canonical_control == "RIGHT_STICK_LEFT" and RIGHT_STICK_EFFECTIVE_LEFT in row_controls:
+            return RIGHT_STICK_EFFECTIVE_LEFT
+        if canonical_control == "RIGHT_STICK_RIGHT" and RIGHT_STICK_EFFECTIVE_RIGHT in row_controls:
+            return RIGHT_STICK_EFFECTIVE_RIGHT
+        if (
+            canonical_control in {"RIGHT_STICK_UP", "RIGHT_STICK_DOWN", "RIGHT_STICK_LEFT", "RIGHT_STICK_RIGHT"}
+            and "RIGHT_STICK_MODE" in row_controls
+        ):
+            return "RIGHT_STICK_MODE"
+        return ""
+
     def _current_editor_mapping_value(self) -> Tuple[str, str]:
         editor_type = str(self._edit_type_combo.currentData() or EDITOR_MAPPING_TYPE_SHORTCUT)
         if editor_type == EDITOR_MAPPING_TYPE_SPECIAL:
             return normalize_shortcut_text(str(self._edit_special.currentData() or "")), MAPPING_ACTION_KEYBOARD
         if editor_type == EDITOR_MAPPING_TYPE_MOUSE:
             return "", str(self._edit_mouse.currentData() or MAPPING_ACTION_MOUSE_LEFT_CLICK)
+        if editor_type == EDITOR_MAPPING_TYPE_STICK:
+            return str(self._edit_stick.currentData() or RIGHT_STICK_MODE_DISABLED), MAPPING_ACTION_STICK_MODE
         return normalize_shortcut_text(self._edit_shortcut.text()), MAPPING_ACTION_KEYBOARD
 
     def _sync_line_edit(self, line_edit: QLineEdit, value: str, guard_key: str) -> None:
@@ -974,7 +1065,7 @@ class MainWindow(QMainWindow):
         )
         combo_active = any(
             combo.hasFocus() or combo.is_popup_open()
-            for combo in (self._edit_type_combo, self._edit_special, self._edit_mouse)
+            for combo in (self._edit_type_combo, self._edit_special, self._edit_mouse, self._edit_stick)
         )
         return has_focus_or_commit or combo_active or self._edit_shortcut.is_popup_open() or self._mapping_editor_has_unsaved_changes()
 
@@ -1098,7 +1189,10 @@ class MainWindow(QMainWindow):
             self._refresh_mapping_editor(self._snapshot.mapping_rows, force=True)
 
     def _on_diagram_control_selected(self, control: str) -> None:
-        row_index = self._control_to_row.get(control)
+        if self._snapshot is None:
+            return
+        row_control = self._resolve_row_control(control, self._snapshot.mapping_rows)
+        row_index = self._control_to_row.get(row_control)
         if row_index is None:
             return
         self._mapping_table.selectRow(row_index)

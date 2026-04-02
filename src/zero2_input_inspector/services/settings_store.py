@@ -18,8 +18,10 @@ from ..domain.profiles import (
     build_default_presets_for_process,
     default_selected_app_profile_id,
     is_media_fallback_name,
+    is_media_fallback_profile,
     migrate_media_fallback_profile,
     normalize_mapping_action_kind,
+    normalize_right_stick_mode,
 )
 from ..identity import DEFAULT_FALLBACK_PROFILE_NAME
 from .shortcuts import normalize_shortcut_text
@@ -32,18 +34,35 @@ class SettingsStore:
         app_data_root = Path(os.getenv("APPDATA", str(Path.home())))
         self._config_dir = app_data_root / "zero2-input-inspector"
         self._config_path = self._config_dir / "config.json"
+        self._last_load_report: Dict[str, Any] = {}
 
     @property
     def config_path(self) -> Path:
         return self._config_path
 
+    @property
+    def last_load_report(self) -> Dict[str, Any]:
+        return dict(self._last_load_report)
+
     def load(self) -> AppConfig:
         if not self._config_path.exists():
+            self._last_load_report = {
+                "source": "defaults",
+                "migrated": False,
+                "legacy_xbox_recognized": False,
+                "rebuilt_from_canonical_defaults": False,
+            }
             return AppConfig()
 
         try:
             payload = json.loads(self._config_path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
+            self._last_load_report = {
+                "source": "defaults",
+                "migrated": False,
+                "legacy_xbox_recognized": False,
+                "rebuilt_from_canonical_defaults": False,
+            }
             return AppConfig()
 
         settings_payload = payload.get("settings", {})
@@ -53,6 +72,7 @@ class SettingsStore:
         raw_theme = str(settings_payload.get("theme", "") or "")
         normalized_theme = normalize_theme_id(raw_theme)
         migrated = migrated or normalized_theme != raw_theme
+        rebuilt_from_canonical_defaults = False
         settings = Settings(
             language=normalized_language,
             theme=normalized_theme,
@@ -73,6 +93,8 @@ class SettingsStore:
                         "mouse_sensitivity",
                         "scroll_sensitivity",
                         "analog_deadzone",
+                        "scroll_deadzone",
+                        "scroll_activation_threshold",
                         "analog_curve",
                         "slow_speed_multiplier",
                         "fast_speed_multiplier",
@@ -84,6 +106,8 @@ class SettingsStore:
                 mouse_sensitivity = _read_float(app_payload, "mouse_sensitivity", 1.0)
                 scroll_sensitivity = _read_float(app_payload, "scroll_sensitivity", 1.0)
                 analog_deadzone = _read_float(app_payload, "analog_deadzone", 0.16)
+                scroll_deadzone = _read_float(app_payload, "scroll_deadzone", 0.32)
+                scroll_activation_threshold = _read_float(app_payload, "scroll_activation_threshold", 0.6)
                 analog_curve = _read_float(app_payload, "analog_curve", 1.7)
                 slow_speed_multiplier = _read_float(app_payload, "slow_speed_multiplier", 0.45)
                 fast_speed_multiplier = _read_float(app_payload, "fast_speed_multiplier", 1.75)
@@ -109,6 +133,7 @@ class SettingsStore:
                             preset_id=str(preset_payload.get("preset_id", "")),
                             name=str(preset_payload.get("name", "Preset")),
                             mappings=mappings,
+                            right_stick_mode=normalize_right_stick_mode(preset_payload.get("right_stick_mode", "")),
                         )
                     )
                 if not presets:
@@ -116,6 +141,7 @@ class SettingsStore:
                         str(app_payload.get("process_name", "*")),
                         app_family_id or family_id,
                     )
+                    rebuilt_from_canonical_defaults = True
                 raw_process_name = str(app_payload.get("process_name", "*") or "*")
                 raw_name = str(app_payload.get("name", "") or "")
                 normalized_name = self._normalize_app_profile_name(
@@ -139,13 +165,28 @@ class SettingsStore:
                     mouse_sensitivity=mouse_sensitivity,
                     scroll_sensitivity=scroll_sensitivity,
                     analog_deadzone=analog_deadzone,
+                    scroll_deadzone=scroll_deadzone,
+                    scroll_activation_threshold=scroll_activation_threshold,
                     analog_curve=analog_curve,
                     slow_speed_multiplier=slow_speed_multiplier,
                     fast_speed_multiplier=fast_speed_multiplier,
                     slow_modifier_control=str(app_payload.get("slow_modifier_control", "") or ""),
                     fast_modifier_control=str(app_payload.get("fast_modifier_control", "") or ""),
                 )
-                migrated = migrated or migrate_media_fallback_profile(app_profile)
+                legacy_xbox_recognized = False
+                if migrate_media_fallback_profile(app_profile):
+                    migrated = True
+                    legacy_xbox_recognized = (
+                        app_profile.family_id.strip().lower() == "xbox"
+                        and app_profile.process_name.strip() == "*"
+                    )
+                if is_media_fallback_profile(app_profile) or not self._last_load_report:
+                    self._last_load_report = {
+                        "source": "saved_config",
+                        "migrated": migrated,
+                        "legacy_xbox_recognized": legacy_xbox_recognized,
+                        "rebuilt_from_canonical_defaults": rebuilt_from_canonical_defaults,
+                    }
                 app_profiles.append(app_profile)
             device_id = str(device_payload.get("device_id", "") or "")
             display_name = str(device_payload.get("display_name", "Controller") or "Controller")
@@ -187,6 +228,13 @@ class SettingsStore:
         )
         if migrated:
             self.save(config)
+        if not self._last_load_report:
+            self._last_load_report = {
+                "source": "saved_config",
+                "migrated": migrated,
+                "legacy_xbox_recognized": False,
+                "rebuilt_from_canonical_defaults": rebuilt_from_canonical_defaults,
+            }
         return config
 
     def save(self, config: AppConfig) -> None:
@@ -230,6 +278,8 @@ class SettingsStore:
                     "mouse_sensitivity": app_profile.mouse_sensitivity,
                     "scroll_sensitivity": app_profile.scroll_sensitivity,
                     "analog_deadzone": app_profile.analog_deadzone,
+                    "scroll_deadzone": app_profile.scroll_deadzone,
+                    "scroll_activation_threshold": app_profile.scroll_activation_threshold,
                     "analog_curve": app_profile.analog_curve,
                     "slow_speed_multiplier": app_profile.slow_speed_multiplier,
                     "fast_speed_multiplier": app_profile.fast_speed_multiplier,
@@ -241,6 +291,7 @@ class SettingsStore:
                     preset_payload = {
                         "preset_id": preset.preset_id,
                         "name": preset.name,
+                        "right_stick_mode": normalize_right_stick_mode(preset.right_stick_mode),
                         "mappings": {
                             control: {
                                 "shortcut": normalize_shortcut_text(mapping.shortcut),

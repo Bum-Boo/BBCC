@@ -147,7 +147,7 @@
     "unknown_diagram_title": "没有精确设备示意图",
     "unknown_diagram_body": "在添加设备专用示意图之前，请先使用映射列表。",
     "unmapped_diagram_title": "没有可信的按钮映射",
-    "unmapped_diagram_body": "请打开 Inspector 查看原始输入。在设备拥有已验证的控制映射之前，主映射器会保持禁用。",
+    "unmapped_diagram_body": "请打开 Inspector 查看原始输入。在使用回退布局时，映射编辑仍然可用。",
     "unsupported_diagram": "此设备当前使用通用控制映射。"
   },
   "theme_default_light": "默认浅色",

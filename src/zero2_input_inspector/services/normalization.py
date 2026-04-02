@@ -78,7 +78,12 @@ class InputNormalizer:
 
         left_stick = self._raw_stick_vector(raw_state, template.raw_fallback.left_stick_axes if template.raw_fallback else None)
         right_stick = self._raw_stick_vector(raw_state, template.raw_fallback.right_stick_axes if template.raw_fallback else None)
-        visible_controls = self._visible_controls(template.visible_controls, mapping_by_control, template.has_exact_diagram)
+        visible_controls = self._visible_controls(
+            template.visible_controls,
+            mapping_by_control,
+            template.has_exact_diagram,
+            template.show_all_controls_when_unverified,
+        )
         return NormalizedControllerState(
             device_id=raw_state.info.device_id,
             device_family_id=template.family_id,
@@ -192,8 +197,9 @@ class InputNormalizer:
         preferred_controls: Tuple[str, ...],
         mapping_by_control: Dict[str, str],
         has_exact_diagram: bool,
+        show_all_controls_when_unverified: bool,
     ) -> Tuple[str, ...]:
-        if has_exact_diagram:
+        if has_exact_diagram or show_all_controls_when_unverified:
             return preferred_controls
         if not mapping_by_control:
             return ()

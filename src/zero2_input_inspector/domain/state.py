@@ -47,6 +47,7 @@ class MappingRow:
     action_text: str = ""
     is_system_action: bool = False
     system_text: str = ""
+    is_read_only: bool = False
 
 
 @dataclass(frozen=True)

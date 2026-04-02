@@ -65,6 +65,11 @@ class DeviceRegistry:
 
         saved_match = self._resolve_saved_family(saved_device)
         if saved_match is not None:
+            if saved_match.family_id == "xbox" and not info.is_standard_controller:
+                fallback_match = self._fallback_template_for_family(saved_match.family_id)
+                if fallback_match is not None:
+                    trace.append("saved family fallback={family}".format(family=fallback_match.family_id))
+                    return ResolvedDeviceFamily(fallback_match, "saved_family_fallback", tuple(trace))
             trace.append("saved family={family}".format(family=saved_match.family_id))
             return ResolvedDeviceFamily(saved_match, "saved_family", tuple(trace))
 
@@ -169,6 +174,15 @@ class DeviceRegistry:
         if not family_id:
             return None
         return self.template_for_family(family_id)
+
+    def _fallback_template_for_family(self, family_id: str) -> Optional[DeviceTemplate]:
+        normalized_family_id = (family_id or "").strip().lower()
+        if not normalized_family_id:
+            return None
+        for template in self._templates:
+            if template.family_id == normalized_family_id and not template.has_exact_diagram:
+                return template
+        return None
 
     def _saved_or_override_family(self, device_profile: DeviceProfile) -> str:
         return device_profile.family_override_id or device_profile.saved_family_id

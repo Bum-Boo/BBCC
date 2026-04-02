@@ -73,12 +73,14 @@
     "type_shortcut": "Shortcut",
     "type_special": "Special Key",
     "type_mouse": "Mouse Action",
+    "type_stick": "Stick Mode",
     "shortcut": "Shortcut",
     "label": "Label",
     "save": "Save",
     "cancel": "Cancel",
     "reset": "Reset",
     "clear": "Clear",
+    "unassigned": "Unassigned",
     "button": "Button",
     "assigned_action": "Assigned action",
     "hint": "Select a button from the diagram or the list to edit it.",
@@ -114,7 +116,13 @@
     "mouse_wheel_up": "Wheel Up",
     "mouse_wheel_down": "Wheel Down",
     "mouse_wheel_left": "Horizontal Scroll Left",
-    "mouse_wheel_right": "Horizontal Scroll Right"
+    "mouse_wheel_right": "Horizontal Scroll Right",
+    "stick_mode_disabled": "Disabled",
+    "stick_mode_mouse_move": "Pointer Movement",
+    "stick_mode_wheel_step_4way": "Wheel Step 4-Way",
+    "stick_mode_wheel_step_vertical": "Wheel Step Vertical",
+    "stick_mode_continuous_scroll": "Continuous Scroll",
+    "stick_mode_custom_advanced": "Custom Advanced"
   },
   "preset": {
     "title": "Preset",
@@ -147,7 +155,7 @@
     "unknown_diagram_title": "No exact device diagram",
     "unknown_diagram_body": "Use the mapping list while device-specific diagram support is added.",
     "unmapped_diagram_title": "No trusted button map",
-    "unmapped_diagram_body": "Open Inspector to review raw input. The main mapper stays disabled until this device has a verified control map.",
+    "unmapped_diagram_body": "Open Inspector to review raw input. The mapping editor stays available while this device uses a fallback layout.",
     "unsupported_diagram": "This device uses a generic control map for now."
   },
   "theme_default_light": "Default Light",

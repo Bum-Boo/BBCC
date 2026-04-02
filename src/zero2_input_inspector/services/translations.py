@@ -70,6 +70,8 @@ _TRANSLATION_KEY_ALIASES: Dict[str, str] = {
     "mapping_type_shortcut": "mapping.type_shortcut",
     "mapping_type_special": "mapping.type_special",
     "mapping_type_mouse": "mapping.type_mouse",
+    "mapping_type_stick": "mapping.type_stick",
+    "mapping.unassigned": "mapping.unassigned",
     "label": "mapping.label",
     "save": "settings.save",
     "cancel": "mapping.cancel",
@@ -126,6 +128,12 @@ _TRANSLATION_KEY_ALIASES: Dict[str, str] = {
     "preset_deleted": "preset.deleted",
     "process_wildcard_hint": "app.process_wildcard_hint",
     "unsupported_diagram": "diagram.unsupported_diagram",
+    "mapping.stick_mode_disabled": "mapping.stick_mode_disabled",
+    "mapping.stick_mode_mouse_move": "mapping.stick_mode_mouse_move",
+    "mapping.stick_mode_wheel_step_4way": "mapping.stick_mode_wheel_step_4way",
+    "mapping.stick_mode_wheel_step_vertical": "mapping.stick_mode_wheel_step_vertical",
+    "mapping.stick_mode_continuous_scroll": "mapping.stick_mode_continuous_scroll",
+    "mapping.stick_mode_custom_advanced": "mapping.stick_mode_custom_advanced",
 }
 
 
