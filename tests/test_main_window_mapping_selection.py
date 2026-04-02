@@ -109,20 +109,20 @@ class MainWindowMappingSelectionTest(unittest.TestCase):
 
         window._on_diagram_control_selected("RIGHT_STICK_UP")
 
-        self.assertEqual(window._selected_control, RIGHT_STICK_EFFECTIVE_UP)
-        self.assertTrue(window._selected_button_value.text().endswith("RS Up"))
-        self.assertEqual(window._edit_label.text(), "Wheel Up")
-        self.assertFalse(window._save_mapping_button.isEnabled())
+        self.assertEqual(window._selected_control, "RIGHT_STICK_MODE")
+        self.assertTrue(window._selected_button_value.text().endswith("Right Stick"))
+        self.assertIn("Derived row selected", window._editor_note.text())
+        self.assertTrue(window._save_mapping_button.isEnabled())
 
     def test_selecting_horizontal_right_stick_breakdown_shows_horizontal_scroll(self) -> None:
         window = self._build_window()
 
         self._select_control(window, RIGHT_STICK_EFFECTIVE_LEFT)
 
-        self.assertEqual(window._selected_control, RIGHT_STICK_EFFECTIVE_LEFT)
-        self.assertTrue(window._selected_button_value.text().endswith("RS Left"))
-        self.assertEqual(window._edit_label.text(), "Horizontal Scroll Left")
-        self.assertFalse(window._save_mapping_button.isEnabled())
+        self.assertEqual(window._selected_control, "RIGHT_STICK_MODE")
+        self.assertTrue(window._selected_button_value.text().endswith("Right Stick"))
+        self.assertIn("Derived row selected", window._editor_note.text())
+        self.assertTrue(window._save_mapping_button.isEnabled())
 
     def test_derived_right_stick_breakdown_rows_are_visible(self) -> None:
         window = self._build_window()

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import sys
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -60,6 +61,9 @@ class PygameJoystickBackend(InputBackend):
         self._last_axis_values: Dict[Tuple[int, int], float] = {}
         self._last_button_values: Dict[Tuple[int, int], bool] = {}
         self._last_hat_values: Dict[Tuple[int, int], Tuple[int, int]] = {}
+        self._pending_events: List[BackendLogEvent] = []
+        self._controller_eventstate_disabled = False
+        self._sdl_controller_available = sdl_controller is not None
 
     def start(self) -> BackendState:
         if self._started:
@@ -72,11 +76,23 @@ class PygameJoystickBackend(InputBackend):
 
         if not pygame.joystick.get_init():
             pygame.joystick.init()
-        if sdl_controller is not None and not sdl_controller.get_init():
-            sdl_controller.init()
+        if sdl_controller is not None:
+            try:
+                if not sdl_controller.get_init():
+                    sdl_controller.init()
+                sdl_controller.set_eventstate(False)
+                self._controller_eventstate_disabled = True
+            except Exception as exc:  # pragma: no cover - defensive runtime guard
+                self._log(
+                    "SDL2 controller bridge setup error ({exc_type}): {error}".format(
+                        exc_type=exc.__class__.__name__,
+                        error=exc,
+                    )
+                )
 
         self._refresh_connected_joysticks()
-        pygame.event.get()
+        self._safe_event_get("start")
+        self._log_startup_diagnostics()
         self._started = True
         return self._build_state()
 
@@ -84,9 +100,9 @@ class PygameJoystickBackend(InputBackend):
         if not self._started:
             return BackendUpdate(state=self.start())
 
-        backend_events: List[BackendLogEvent] = []
+        backend_events: List[BackendLogEvent] = self._drain_pending_events()
 
-        for event in pygame.event.get():
+        for event in self._safe_event_get("poll"):
             event_type = getattr(event, "type", None)
 
             if event_type == pygame.JOYDEVICEADDED:
@@ -193,6 +209,7 @@ class PygameJoystickBackend(InputBackend):
                     )
                 continue
 
+        backend_events.extend(self._drain_pending_events())
         return BackendUpdate(state=self._build_state(), events=tuple(backend_events))
 
     def stop(self) -> None:
@@ -209,6 +226,7 @@ class PygameJoystickBackend(InputBackend):
         self._last_axis_values.clear()
         self._last_button_values.clear()
         self._last_hat_values.clear()
+        self._pending_events.clear()
 
         if pygame.joystick.get_init():
             pygame.joystick.quit()
@@ -227,6 +245,56 @@ class PygameJoystickBackend(InputBackend):
             pygame.display.set_mode((1, 1), flags=getattr(pygame, "HIDDEN", 0))
         except pygame.error:
             pass
+
+    def _safe_event_get(self, phase: str) -> List[Any]:
+        try:
+            return list(pygame.event.get())
+        except Exception as exc:  # pragma: no cover - defensive runtime guard
+            self._log(
+                "pygame.event.get() failed during {phase} ({exc_type}): {error}; controller_events_disabled={disabled}".format(
+                    phase=phase,
+                    exc_type=exc.__class__.__name__,
+                    error=exc,
+                    disabled=self._controller_eventstate_disabled,
+                )
+            )
+            return []
+
+    def _drain_pending_events(self) -> List[BackendLogEvent]:
+        pending = list(self._pending_events)
+        self._pending_events.clear()
+        return pending
+
+    def _log(self, message: str) -> None:
+        self._pending_events.append(BackendLogEvent(timestamp=datetime.now(), message=message))
+
+    def _controller_eventstate_status(self) -> str:
+        if sdl_controller is None:
+            return "unavailable"
+        try:
+            return "disabled" if not sdl_controller.get_eventstate() else "enabled"
+        except Exception:
+            return "unknown"
+
+    def _controller_count(self) -> str:
+        try:
+            return str(getattr(sdl_controller, "get_count", lambda: "n/a")()) if sdl_controller is not None else "n/a"
+        except Exception:
+            return "unknown"
+
+    def _log_startup_diagnostics(self) -> None:
+        pygame_version = getattr(pygame, "version", None)
+        version_text = getattr(pygame_version, "ver", "unknown")
+        self._log(
+            "Backend startup -> python={python} pygame={pygame} sdl2_controller={sdl2} controller_eventstate={eventstate} joystick_count={joysticks} controller_count={controllers}".format(
+                python=sys.version.split()[0],
+                pygame=version_text,
+                sdl2=bool(self._sdl_controller_available),
+                eventstate=self._controller_eventstate_status(),
+                joysticks=pygame.joystick.get_count(),
+                controllers=self._controller_count(),
+            )
+        )
 
     def _refresh_connected_joysticks(self) -> None:
         self._joysticks.clear()

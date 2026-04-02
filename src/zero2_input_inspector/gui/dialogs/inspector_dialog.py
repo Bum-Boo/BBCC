@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Iterable, Optional, Tuple
 
 from PyQt5.QtCore import Qt
@@ -100,6 +101,12 @@ class InspectorDialog(QDialog):
         self._log_view.setPlainText("\n".join(snapshot.logs))
         scrollbar = self._log_view.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
+        diagnostics = {}
+        if snapshot.selected_device_id:
+            diagnostics = self._service.input_diagnostics(snapshot.selected_device_id)
+        self._diagnostics_view.setPlainText(
+            json.dumps(diagnostics, indent=2, sort_keys=True, ensure_ascii=True) if diagnostics else "{}"
+        )
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
@@ -189,8 +196,16 @@ class InspectorDialog(QDialog):
         self._log_view.setMaximumBlockCount(500)
         log_layout.addWidget(self._log_view)
 
+        self._diagnostics_tab = QWidget(self._tabs)
+        diagnostics_layout = QVBoxLayout(self._diagnostics_tab)
+        diagnostics_layout.setContentsMargins(0, 0, 0, 0)
+        self._diagnostics_view = QPlainTextEdit(self._diagnostics_tab)
+        self._diagnostics_view.setReadOnly(True)
+        diagnostics_layout.addWidget(self._diagnostics_view)
+
         self._tabs.addTab(self._raw_tab, "")
         self._tabs.addTab(self._log_tab, "")
+        self._tabs.addTab(self._diagnostics_tab, "")
         root.addWidget(self._tabs, 1)
 
         footer = QHBoxLayout()
@@ -216,6 +231,7 @@ class InspectorDialog(QDialog):
         self._trace_label.setText("{label}:".format(label=self._service.tr("resolution_trace")))
         self._tabs.setTabText(0, self._service.tr("raw_input"))
         self._tabs.setTabText(1, self._service.tr("log"))
+        self._tabs.setTabText(2, "Diagnostics")
         self._axes_table.setHorizontalHeaderLabels([self._service.tr("button"), self._service.tr("raw_axes")])
         self._buttons_table.setHorizontalHeaderLabels([self._service.tr("button"), self._service.tr("raw_buttons")])
         self._hats_table.setHorizontalHeaderLabels([self._service.tr("button"), self._service.tr("raw_hats")])

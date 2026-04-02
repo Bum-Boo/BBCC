@@ -137,6 +137,7 @@ class MainWindow(QMainWindow):
         self._mapping_rows_signature: Tuple[Tuple[object, ...], ...] = ()
         self._rendered_selected_control = ""
         self._force_editor_refresh_control = ""
+        self._derived_row_redirect_note = ""
         self._landing_mode = True
         self._editor_opened = False
         self._line_edit_commit_guards = {
@@ -848,7 +849,14 @@ class MainWindow(QMainWindow):
             return
         self._load_mapping_editor_from_row(selected_row, force=force)
 
-        if selected_row.is_system_action:
+        if self._derived_row_redirect_note and selected_row.control == "RIGHT_STICK_MODE":
+            self._editor_note.setText(
+                "Derived row selected: {row}. Edit the Right Stick row above to change this behavior.".format(
+                    row=self._derived_row_redirect_note
+                )
+            )
+            self._derived_row_redirect_note = ""
+        elif selected_row.is_system_action:
             self._editor_note.setText(
                 "{title}: {detail}".format(
                     title=self._service.tr("system_action"),
@@ -994,21 +1002,19 @@ class MainWindow(QMainWindow):
         if not canonical_control:
             return ""
         row_controls = {row.control for row in rows}
+        if canonical_control in {
+            RIGHT_STICK_EFFECTIVE_UP,
+            RIGHT_STICK_EFFECTIVE_DOWN,
+            RIGHT_STICK_EFFECTIVE_LEFT,
+            RIGHT_STICK_EFFECTIVE_RIGHT,
+            "RIGHT_STICK_UP",
+            "RIGHT_STICK_DOWN",
+            "RIGHT_STICK_LEFT",
+            "RIGHT_STICK_RIGHT",
+        } and "RIGHT_STICK_MODE" in row_controls:
+            return "RIGHT_STICK_MODE"
         if canonical_control in row_controls:
             return canonical_control
-        if canonical_control == "RIGHT_STICK_UP" and RIGHT_STICK_EFFECTIVE_UP in row_controls:
-            return RIGHT_STICK_EFFECTIVE_UP
-        if canonical_control == "RIGHT_STICK_DOWN" and RIGHT_STICK_EFFECTIVE_DOWN in row_controls:
-            return RIGHT_STICK_EFFECTIVE_DOWN
-        if canonical_control == "RIGHT_STICK_LEFT" and RIGHT_STICK_EFFECTIVE_LEFT in row_controls:
-            return RIGHT_STICK_EFFECTIVE_LEFT
-        if canonical_control == "RIGHT_STICK_RIGHT" and RIGHT_STICK_EFFECTIVE_RIGHT in row_controls:
-            return RIGHT_STICK_EFFECTIVE_RIGHT
-        if (
-            canonical_control in {"RIGHT_STICK_UP", "RIGHT_STICK_DOWN", "RIGHT_STICK_LEFT", "RIGHT_STICK_RIGHT"}
-            and "RIGHT_STICK_MODE" in row_controls
-        ):
-            return "RIGHT_STICK_MODE"
         return ""
 
     def _current_editor_mapping_value(self) -> Tuple[str, str]:
@@ -1182,11 +1188,26 @@ class MainWindow(QMainWindow):
         items = self._mapping_table.selectedItems()
         if not items:
             return
-        self._selected_control = str(items[0].data(Qt.UserRole))
+        selected_control = str(items[0].data(Qt.UserRole))
+        resolved_control = self._selected_control = self._resolve_row_control(
+            selected_control,
+            self._snapshot.mapping_rows if self._snapshot is not None else (),
+        )
+        if selected_control != resolved_control and resolved_control == "RIGHT_STICK_MODE":
+            self._derived_row_redirect_note = selected_control
+        else:
+            self._derived_row_redirect_note = ""
+        redirect_note = self._derived_row_redirect_note
         self._rendered_selected_control = self._selected_control
         self._controller_diagram.set_selected_control(self._selected_control)
         if self._snapshot is not None:
             self._refresh_mapping_editor(self._snapshot.mapping_rows, force=True)
+        if redirect_note:
+            self._editor_note.setText(
+                "Derived row selected: {row}. Edit the Right Stick row above to change this behavior.".format(
+                    row=redirect_note
+                )
+            )
 
     def _on_diagram_control_selected(self, control: str) -> None:
         if self._snapshot is None:
@@ -1195,8 +1216,25 @@ class MainWindow(QMainWindow):
         row_index = self._control_to_row.get(row_control)
         if row_index is None:
             return
-        self._mapping_table.selectRow(row_index)
+        if control != row_control and row_control == "RIGHT_STICK_MODE":
+            self._derived_row_redirect_note = control
+        was_blocked = self._mapping_table.blockSignals(True)
+        try:
+            self._mapping_table.selectRow(row_index)
+        finally:
+            self._mapping_table.blockSignals(was_blocked)
         self._mapping_table.scrollToItem(self._mapping_table.item(row_index, 0))
+        self._selected_control = row_control
+        self._rendered_selected_control = self._selected_control
+        self._controller_diagram.set_selected_control(self._selected_control)
+        self._refresh_mapping_editor(self._snapshot.mapping_rows, force=True)
+        if self._derived_row_redirect_note:
+            self._editor_note.setText(
+                "Derived row selected: {row}. Edit the Right Stick row above to change this behavior.".format(
+                    row=self._derived_row_redirect_note
+                )
+            )
+            self._derived_row_redirect_note = ""
 
     def _on_mapping_type_changed(self) -> None:
         self._update_editor_value_stack()

@@ -213,6 +213,38 @@ class AnalogScrollRegressionTest(unittest.TestCase):
         self.assertEqual(self.output.scroll_events, [])
         self.assertFalse(diagnostics["wheel_neutral_latch"]["armed"])
         self.assertEqual(diagnostics["wheel_repeat_active_control"], "")
+        self.assertEqual(diagnostics["wheel_gate_reason"], "awaiting_neutral_latch")
+
+    def test_xbox_tuned_thresholds_emit_for_normal_intentional_push(self) -> None:
+        app_profile = AppProfile(
+            app_profile_id="app-3a",
+            name="YouTube",
+            process_name="*",
+            family_id="xbox",
+            scroll_deadzone=0.32,
+            scroll_activation_threshold=0.6,
+            presets=build_default_media_presets_for_family("xbox"),
+        )
+        preset = app_profile.presets[0]
+        self._arm_wheel_neutral_latch(app_profile, preset)
+
+        with patch("zero2_input_inspector.services.mapper_service.monotonic", side_effect=[1.14]):
+            self.service._dispatch_right_stick_wheel_step_mode(
+                self.device,
+                app_profile,
+                self._normalized_state((0.04, 0.38)),
+                preset,
+                (0.04, 0.38),
+                RIGHT_STICK_MODE_WHEEL_STEP_4WAY,
+            )
+
+        diagnostics = self.service.input_diagnostics("device-1")
+        self.assertEqual(self.output.scroll_events, [(0, 1)])
+        self.assertEqual(diagnostics["wheel_gate_config"]["neutral_threshold"], 0.18)
+        self.assertEqual(diagnostics["wheel_gate_config"]["activation_threshold"], 0.34)
+        self.assertEqual(diagnostics["wheel_gate_config"]["dominance_margin"], 0.03)
+        self.assertEqual(diagnostics["wheel_gate_config"]["neutral_latch_seconds"], 0.05)
+        self.assertEqual(diagnostics["wheel_gate_reason"], "emitted_wheel_up")
 
     def test_wheel_repeat_only_starts_after_neutral_latch_and_intentional_movement(self) -> None:
         app_profile = AppProfile(
@@ -254,6 +286,7 @@ class AnalogScrollRegressionTest(unittest.TestCase):
         diagnostics = self.service.input_diagnostics("device-1")
         self.assertTrue(diagnostics["wheel_neutral_latch"]["armed"])
         self.assertEqual(diagnostics["wheel_repeat_active_control"], "RIGHT_STICK_UP")
+        self.assertEqual(diagnostics["wheel_gate_reason"], "emitted_wheel_up")
 
     def test_returning_right_stick_to_center_stops_wheel_repeat(self) -> None:
         app_profile = AppProfile(
@@ -295,6 +328,7 @@ class AnalogScrollRegressionTest(unittest.TestCase):
         self.assertNotIn("device-1", self.service._wheel_repeat_last_fired)
         diagnostics = self.service.input_diagnostics("device-1")
         self.assertEqual(diagnostics["wheel_repeat_reset_reason"], "neutral")
+        self.assertEqual(diagnostics["wheel_gate_reason"], "below_deadzone")
 
     def test_no_false_dpad_up_output_at_idle(self) -> None:
         preset = build_default_media_presets_for_family("xbox")[0]
@@ -374,6 +408,7 @@ class AnalogScrollRegressionTest(unittest.TestCase):
         self.assertEqual(diagnostics["last_emitted_action"]["canonical_source"], "right_stick_mode:wheel_step_4way")
         self.assertEqual(diagnostics["last_upward_emission"]["source_kind"], "mouse_wheel_up")
         self.assertIn("stabilized_vector", diagnostics)
+        self.assertEqual(diagnostics["wheel_gate_reason"], "emitted_wheel_up")
 
     def test_right_stick_left_and_right_emit_horizontal_wheel_in_4way_mode(self) -> None:
         app_profile = AppProfile(
@@ -408,6 +443,58 @@ class AnalogScrollRegressionTest(unittest.TestCase):
         diagnostics = self.service.input_diagnostics("device-1")
         self.assertEqual(diagnostics["wheel_vector_analysis"]["dominant_axis"], "horizontal")
         self.assertEqual(diagnostics["last_emitted_action"]["canonical_source"], "right_stick_mode:wheel_step_4way")
+        self.assertEqual(diagnostics["wheel_gate_reason"], "emitted_wheel_left")
+
+    def test_wheel_step_4way_emits_all_four_directions(self) -> None:
+        app_profile = AppProfile(
+            app_profile_id="app-6b1",
+            name="YouTube",
+            process_name="*",
+            family_id="xbox",
+            presets=build_default_media_presets_for_family("xbox"),
+        )
+        preset = app_profile.presets[0]
+        self._arm_wheel_neutral_latch(app_profile, preset)
+
+        with patch("zero2_input_inspector.services.mapper_service.monotonic", side_effect=[1.14, 1.31, 1.48, 1.65]):
+            self.service._dispatch_right_stick_wheel_step_mode(
+                self.device,
+                app_profile,
+                self._normalized_state((0.05, 0.9)),
+                preset,
+                (0.05, 0.9),
+                RIGHT_STICK_MODE_WHEEL_STEP_4WAY,
+            )
+            self.service._dispatch_right_stick_wheel_step_mode(
+                self.device,
+                app_profile,
+                self._normalized_state((0.05, -0.9)),
+                preset,
+                (0.05, -0.9),
+                RIGHT_STICK_MODE_WHEEL_STEP_4WAY,
+            )
+            self.service._dispatch_right_stick_wheel_step_mode(
+                self.device,
+                app_profile,
+                self._normalized_state((0.9, 0.05)),
+                preset,
+                (0.9, 0.05),
+                RIGHT_STICK_MODE_WHEEL_STEP_4WAY,
+            )
+            self.service._dispatch_right_stick_wheel_step_mode(
+                self.device,
+                app_profile,
+                self._normalized_state((-0.9, 0.05)),
+                preset,
+                (-0.9, 0.05),
+                RIGHT_STICK_MODE_WHEEL_STEP_4WAY,
+            )
+
+        diagnostics = self.service.input_diagnostics("device-1")
+        self.assertEqual(self.output.scroll_events, [(0, 1), (0, -1), (1, 0), (-1, 0)])
+        self.assertEqual(diagnostics["wheel_gate_reason"], "emitted_wheel_left")
+        self.assertEqual(diagnostics["last_emitted_action"]["source_kind"], "mouse_wheel_left")
+        self.assertEqual(diagnostics["last_emitted_action"]["canonical_source"], "right_stick_mode:wheel_step_4way")
 
     def test_vertical_only_mode_still_ignores_horizontal_input(self) -> None:
         app_profile = AppProfile(
@@ -441,6 +528,8 @@ class AnalogScrollRegressionTest(unittest.TestCase):
             )
 
         self.assertEqual(self.output.scroll_events, [])
+        diagnostics = self.service.input_diagnostics("device-1")
+        self.assertEqual(diagnostics["wheel_gate_reason"], "direction_unassigned")
 
     def test_directional_dominance_prevents_diagonal_misfire(self) -> None:
         app_profile = AppProfile(
@@ -459,9 +548,9 @@ class AnalogScrollRegressionTest(unittest.TestCase):
             self.service._dispatch_right_stick_wheel_step_mode(
                 self.device,
                 app_profile,
-                self._normalized_state((0.74, 0.70)),
+                self._normalized_state((0.58, 0.56)),
                 preset,
-                (0.74, 0.70),
+                (0.58, 0.56),
                 RIGHT_STICK_MODE_WHEEL_STEP_4WAY,
             )
 
@@ -469,6 +558,34 @@ class AnalogScrollRegressionTest(unittest.TestCase):
         self.assertEqual(self.output.scroll_events, [])
         self.assertEqual(diagnostics["wheel_repeat_active_control"], "")
         self.assertEqual(diagnostics["wheel_vector_analysis"]["dominant_control"], "")
+        self.assertEqual(diagnostics["wheel_gate_reason"], "dominance_failed")
+
+    def test_diagnostics_report_below_activation_threshold_reason(self) -> None:
+        app_profile = AppProfile(
+            app_profile_id="app-6e",
+            name="YouTube",
+            process_name="*",
+            family_id="xbox",
+            scroll_deadzone=0.32,
+            scroll_activation_threshold=0.6,
+            presets=build_default_media_presets_for_family("xbox"),
+        )
+        preset = app_profile.presets[0]
+        self._arm_wheel_neutral_latch(app_profile, preset)
+
+        with patch("zero2_input_inspector.services.mapper_service.monotonic", side_effect=[1.14]):
+            self.service._dispatch_right_stick_wheel_step_mode(
+                self.device,
+                app_profile,
+                self._normalized_state((0.02, 0.31)),
+                preset,
+                (0.02, 0.31),
+                RIGHT_STICK_MODE_WHEEL_STEP_4WAY,
+            )
+
+        diagnostics = self.service.input_diagnostics("device-1")
+        self.assertEqual(self.output.scroll_events, [])
+        self.assertEqual(diagnostics["wheel_gate_reason"], "below_activation_threshold")
 
     def test_diagnostics_classify_keyboard_up_separately(self) -> None:
         self.service._normalized_states["device-1"] = self._normalized_state(

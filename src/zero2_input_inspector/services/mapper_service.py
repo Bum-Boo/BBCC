@@ -85,6 +85,10 @@ RIGHT_STICK_IDLE_BASELINE_MAX = 0.18
 RIGHT_STICK_BASELINE_UPDATE_ALPHA = 0.2
 RIGHT_STICK_WHEEL_DOMINANCE_MARGIN = 0.08
 RIGHT_STICK_NEUTRAL_LATCH_SECONDS = 0.12
+XBOX_WHEEL_STEP_DEADZONE = 0.18
+XBOX_WHEEL_STEP_ACTIVATION_THRESHOLD = 0.34
+XBOX_WHEEL_STEP_DOMINANCE_MARGIN = 0.03
+XBOX_WHEEL_STEP_NEUTRAL_LATCH_SECONDS = 0.05
 LEFT_STICK_DIRECTION_CONTROLS = (
     LEFT_STICK_LEFT,
     LEFT_STICK_RIGHT,
@@ -832,6 +836,32 @@ class MapperService(QObject):
     def right_stick_diagnostics(self, device_id: str) -> Dict[str, object]:
         return self.input_diagnostics(device_id)
 
+    def _wheel_step_gate_config(
+        self,
+        app_profile: AppProfile,
+        normalized_state: NormalizedControllerState,
+    ) -> Dict[str, float | bool]:
+        neutral_threshold = max(0.0, min(0.95, app_profile.scroll_deadzone))
+        activation_threshold = max(neutral_threshold, min(0.98, app_profile.scroll_activation_threshold))
+        dominance_margin = RIGHT_STICK_WHEEL_DOMINANCE_MARGIN
+        neutral_latch_seconds = RIGHT_STICK_NEUTRAL_LATCH_SECONDS
+        xbox_tuned = normalized_state.device_family_id == "xbox"
+        if xbox_tuned:
+            neutral_threshold = min(neutral_threshold, XBOX_WHEEL_STEP_DEADZONE)
+            activation_threshold = min(
+                max(neutral_threshold, activation_threshold),
+                XBOX_WHEEL_STEP_ACTIVATION_THRESHOLD,
+            )
+            dominance_margin = min(dominance_margin, XBOX_WHEEL_STEP_DOMINANCE_MARGIN)
+            neutral_latch_seconds = min(neutral_latch_seconds, XBOX_WHEEL_STEP_NEUTRAL_LATCH_SECONDS)
+        return {
+            "neutral_threshold": round(neutral_threshold, 4),
+            "activation_threshold": round(activation_threshold, 4),
+            "dominance_margin": round(dominance_margin, 4),
+            "neutral_latch_seconds": round(neutral_latch_seconds, 4),
+            "xbox_tuned": xbox_tuned,
+        }
+
     def _dispatch_right_stick_wheel_actions(
         self,
         device_profile: DeviceProfile,
@@ -842,13 +872,17 @@ class MapperService(QObject):
         canonical_source: str = "",
     ) -> None:
         diagnostics = self._right_stick_diagnostics.setdefault(device_profile.device_id, {})
-        diagnostics["wheel_deadzone"] = round(app_profile.scroll_deadzone, 4)
-        diagnostics["wheel_activation_threshold"] = round(app_profile.scroll_activation_threshold, 4)
+        gate_config = self._wheel_step_gate_config(app_profile, normalized_state)
+        diagnostics["wheel_gate_config"] = gate_config
+        diagnostics["wheel_deadzone"] = gate_config["neutral_threshold"]
+        diagnostics["wheel_activation_threshold"] = gate_config["activation_threshold"]
         now = monotonic()
-        neutral_threshold = max(0.0, min(0.95, app_profile.scroll_deadzone))
-        threshold = max(neutral_threshold, min(0.98, app_profile.scroll_activation_threshold))
-        dominance_margin = RIGHT_STICK_WHEEL_DOMINANCE_MARGIN
+        neutral_threshold = float(gate_config["neutral_threshold"])
+        threshold = float(gate_config["activation_threshold"])
+        dominance_margin = float(gate_config["dominance_margin"])
+        neutral_latch_seconds = float(gate_config["neutral_latch_seconds"])
         repeat_store = self._wheel_repeat_last_fired.setdefault(device_profile.device_id, {})
+        diagnostics["wheel_gate_reason"] = ""
 
         neutral_armed = True
         latch_state: Dict[str, object] = {
@@ -862,6 +896,7 @@ class MapperService(QObject):
                 stabilized_vector,
                 neutral_threshold,
                 now,
+                neutral_latch_seconds,
             )
         diagnostics["wheel_neutral_latch"] = {
             "armed": bool(latch_state.get("armed")),
@@ -872,13 +907,15 @@ class MapperService(QObject):
             ),
             "required": bool(latch_state.get("required")),
             "neutral_threshold": round(neutral_threshold, 4),
-            "duration_seconds": RIGHT_STICK_NEUTRAL_LATCH_SECONDS,
+            "duration_seconds": neutral_latch_seconds,
         }
 
         x_value, y_value = stabilized_vector
         abs_x = abs(x_value)
         abs_y = abs(y_value)
         is_neutral = max(abs_x, abs_y) < neutral_threshold
+        vertical_ready = abs_y >= threshold
+        horizontal_ready = abs_x >= threshold
         dominant_control = ""
         if abs_y >= threshold and abs_y > abs_x + dominance_margin:
             dominant_control = RIGHT_STICK_UP if y_value > 0.0 else RIGHT_STICK_DOWN
@@ -898,10 +935,13 @@ class MapperService(QObject):
             ),
             "vertical_dominance_passed": dominant_control in {RIGHT_STICK_UP, RIGHT_STICK_DOWN},
             "horizontal_dominance_passed": dominant_control in {RIGHT_STICK_LEFT, RIGHT_STICK_RIGHT},
+            "vertical_ready": vertical_ready,
+            "horizontal_ready": horizontal_ready,
             "is_neutral": is_neutral,
         }
         if is_neutral:
             self._clear_wheel_repeat_state(device_profile.device_id, "neutral")
+            diagnostics["wheel_gate_reason"] = "below_deadzone"
             diagnostics["wheel_repeat_active_control"] = ""
             return
 
@@ -942,10 +982,22 @@ class MapperService(QObject):
 
         if not neutral_armed:
             self._clear_wheel_repeat_state(device_profile.device_id, "awaiting_neutral_latch")
+            diagnostics["wheel_gate_reason"] = "awaiting_neutral_latch"
+            diagnostics["wheel_repeat_active_control"] = ""
+            return
+        if not vertical_ready and not horizontal_ready:
+            self._clear_wheel_repeat_state(device_profile.device_id, "below_activation_threshold")
+            diagnostics["wheel_gate_reason"] = "below_activation_threshold"
+            diagnostics["wheel_repeat_active_control"] = ""
+            return
+        if not dominant_control:
+            self._clear_wheel_repeat_state(device_profile.device_id, "dominance_failed")
+            diagnostics["wheel_gate_reason"] = "dominance_failed"
             diagnostics["wheel_repeat_active_control"] = ""
             return
         if not active_control or active_assignment is None:
-            self._clear_wheel_repeat_state(device_profile.device_id, "no_dominant_direction")
+            self._clear_wheel_repeat_state(device_profile.device_id, "direction_unassigned")
+            diagnostics["wheel_gate_reason"] = "direction_unassigned"
             diagnostics["wheel_repeat_active_control"] = ""
             return
 
@@ -957,6 +1009,7 @@ class MapperService(QObject):
         diagnostics["wheel_repeat_active_control"] = active_control
         last_fired_at = repeat_store.get(active_control)
         if last_fired_at is not None and now - last_fired_at < WHEEL_REPEAT_INTERVAL_SECONDS:
+            diagnostics["wheel_gate_reason"] = "repeat_cooldown"
             return
 
         repeat_store[active_control] = now
@@ -971,8 +1024,15 @@ class MapperService(QObject):
             "action_kind": active_assignment.action_kind,
             "canonical_source": canonical_source or "assignment:{control}".format(control=active_control),
         }
+        diagnostics["wheel_gate_reason"] = {
+            RIGHT_STICK_UP: "emitted_wheel_up",
+            RIGHT_STICK_DOWN: "emitted_wheel_down",
+            RIGHT_STICK_LEFT: "emitted_wheel_left",
+            RIGHT_STICK_RIGHT: "emitted_wheel_right",
+        }.get(active_control, "emitted")
         self._log(
-            "RS wheel -> control={control} raw={raw} stabilized={stabilized} action={action}".format(
+            "RS wheel -> reason={reason} control={control} raw={raw} stabilized={stabilized} action={action}".format(
+                reason=diagnostics["wheel_gate_reason"],
                 control=active_control,
                 raw=diagnostics.get("raw_vector"),
                 stabilized=diagnostics.get("stabilized_vector"),
@@ -1057,6 +1117,7 @@ class MapperService(QObject):
         stabilized_vector: Tuple[float, float],
         neutral_threshold: float,
         now: float,
+        neutral_latch_seconds: float,
     ) -> Tuple[bool, Dict[str, object]]:
         latch_state = self._wheel_neutral_latches.setdefault(
             device_id,
@@ -1070,7 +1131,7 @@ class MapperService(QObject):
         if in_neutral:
             if latch_state.get("neutral_since") is None:
                 latch_state["neutral_since"] = now
-            elif not latch_state.get("armed") and now - float(latch_state["neutral_since"]) >= RIGHT_STICK_NEUTRAL_LATCH_SECONDS:
+            elif not latch_state.get("armed") and now - float(latch_state["neutral_since"]) >= neutral_latch_seconds:
                 latch_state["armed"] = True
         elif not latch_state.get("armed"):
             latch_state["neutral_since"] = None
