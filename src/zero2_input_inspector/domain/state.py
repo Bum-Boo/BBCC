@@ -32,6 +32,10 @@ class NormalizedControllerState:
     controls: Dict[str, LogicalControlState]
     left_stick: Tuple[float, float] = (0.0, 0.0)
     right_stick: Tuple[float, float] = (0.0, 0.0)
+    left_stick_vector_source: str = ""
+    right_stick_vector_source: str = ""
+    left_stick_axis_indices: Tuple[Optional[int], Optional[int]] = (None, None)
+    right_stick_axis_indices: Tuple[Optional[int], Optional[int]] = (None, None)
     deadzone: float = 0.25
     threshold: float = 0.55
 

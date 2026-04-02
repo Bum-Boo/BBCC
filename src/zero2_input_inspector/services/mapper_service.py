@@ -1160,6 +1160,11 @@ class MapperService(QObject):
         rising_controls: Set[str],
     ) -> None:
         diagnostics = self._right_stick_diagnostics.setdefault(device_profile.device_id, {})
+        diagnostics["mapping_origin"] = normalized_state.mapping_origin
+        diagnostics["left_stick_vector_source"] = normalized_state.left_stick_vector_source
+        diagnostics["right_stick_vector_source"] = normalized_state.right_stick_vector_source
+        diagnostics["left_stick_axis_indices"] = normalized_state.left_stick_axis_indices
+        diagnostics["right_stick_axis_indices"] = normalized_state.right_stick_axis_indices
         diagnostics["right_stick_mode"] = normalize_right_stick_mode(preset.right_stick_mode)
         diagnostics["profile"] = {
             "app_profile_id": app_profile.app_profile_id,

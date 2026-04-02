@@ -76,8 +76,20 @@ class InputNormalizer:
         for control, mapping_token in mapping_by_control.items():
             controls[control] = self._resolve_control_state(raw_state, control, mapping_token)
 
-        left_stick = self._raw_stick_vector(raw_state, template.raw_fallback.left_stick_axes if template.raw_fallback else None)
-        right_stick = self._raw_stick_vector(raw_state, template.raw_fallback.right_stick_axes if template.raw_fallback else None)
+        left_stick, left_stick_source, left_stick_axes = self._stick_vector(
+            raw_state=raw_state,
+            standard_mapping=standard_mapping if mapping_origin == "SDL standard mapping" else None,
+            standard_axis_keys=("leftx", "lefty"),
+            fallback_axes=template.raw_fallback.left_stick_axes if template.raw_fallback else None,
+            fallback_label="raw fallback",
+        )
+        right_stick, right_stick_source, right_stick_axes = self._stick_vector(
+            raw_state=raw_state,
+            standard_mapping=standard_mapping if mapping_origin == "SDL standard mapping" else None,
+            standard_axis_keys=("rightx", "righty"),
+            fallback_axes=template.raw_fallback.right_stick_axes if template.raw_fallback else None,
+            fallback_label="raw fallback",
+        )
         visible_controls = self._visible_controls(
             template.visible_controls,
             mapping_by_control,
@@ -100,6 +112,10 @@ class InputNormalizer:
             controls=controls,
             left_stick=left_stick,
             right_stick=right_stick,
+            left_stick_vector_source=left_stick_source,
+            right_stick_vector_source=right_stick_source,
+            left_stick_axis_indices=left_stick_axes,
+            right_stick_axis_indices=right_stick_axes,
             deadzone=self._deadzone,
             threshold=self._threshold,
         )
@@ -191,6 +207,56 @@ class InputNormalizer:
         x_value = raw_state.axes[axis_x] if axis_x < len(raw_state.axes) else 0.0
         y_value = raw_state.axes[axis_y] if axis_y < len(raw_state.axes) else 0.0
         return (float(x_value), float(-y_value))
+
+    def _stick_vector(
+        self,
+        *,
+        raw_state: RawControllerState,
+        standard_mapping: Optional[Dict[str, str]],
+        standard_axis_keys: Tuple[str, str],
+        fallback_axes: Optional[Tuple[int, int]],
+        fallback_label: str,
+    ) -> Tuple[Tuple[float, float], str, Tuple[Optional[int], Optional[int]]]:
+        if standard_mapping:
+            standard_vector = self._standard_stick_vector(raw_state, standard_mapping, standard_axis_keys)
+            if standard_vector is not None:
+                vector, axis_indices = standard_vector
+                return vector, "SDL standard mapping", axis_indices
+        if fallback_axes is not None:
+            return self._raw_stick_vector(raw_state, fallback_axes), fallback_label, fallback_axes
+        return (0.0, 0.0), "unmapped", (None, None)
+
+    def _standard_stick_vector(
+        self,
+        raw_state: RawControllerState,
+        standard_mapping: Dict[str, str],
+        axis_keys: Tuple[str, str],
+    ) -> Optional[Tuple[Tuple[float, float], Tuple[Optional[int], Optional[int]]]]:
+        axis_x_token = str(standard_mapping.get(axis_keys[0], "")).strip()
+        axis_y_token = str(standard_mapping.get(axis_keys[1], "")).strip()
+        x_value, axis_x = self._axis_value_from_mapping_token(raw_state, axis_x_token)
+        y_value, axis_y = self._axis_value_from_mapping_token(raw_state, axis_y_token)
+        if axis_x is None and axis_y is None:
+            return None
+        return (float(x_value), float(-y_value)), (axis_x, axis_y)
+
+    def _axis_value_from_mapping_token(
+        self,
+        raw_state: RawControllerState,
+        mapping_token: str,
+    ) -> Tuple[float, Optional[int]]:
+        if not mapping_token:
+            return 0.0, None
+        parsed = self._parse_mapping_token(mapping_token.lstrip("+-"))
+        if parsed is None:
+            return 0.0, None
+        kind, index, _direction, invert = parsed
+        if kind != "a":
+            return 0.0, None
+        axis_value = raw_state.axes[index] if index < len(raw_state.axes) else 0.0
+        if invert:
+            axis_value = -axis_value
+        return float(axis_value), index
 
     def _visible_controls(
         self,
