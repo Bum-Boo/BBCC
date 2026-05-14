@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zero2-input-inspector"
-version = "1.0.0"
+version = "0.1.2"
 description = "Tray-resident Windows controller mapper and inspector for creative workflows."
 readme = "README.md"
 requires-python = ">=3.8"

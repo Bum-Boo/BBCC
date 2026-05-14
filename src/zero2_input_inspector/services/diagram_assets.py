@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -38,7 +39,12 @@ def _package_root() -> Path:
 
 
 def _candidate_files(*parts: str) -> Iterable[Path]:
-    for root in (_repo_root(), _package_root()):
+    roots = []
+    frozen_root = getattr(sys, "_MEIPASS", "")
+    if frozen_root:
+        roots.append(Path(frozen_root))
+    roots.extend((_repo_root(), _package_root()))
+    for root in tuple(dict.fromkeys(roots)):
         yield root.joinpath(*parts)
 
 

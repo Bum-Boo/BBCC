@@ -58,7 +58,7 @@ cd BBCC
 py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-pip install -e .
+pip install -r requirements-dev.txt
 python -m zero2_input_inspector
 ```
 
@@ -150,7 +150,7 @@ cd BBCC
 py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-pip install -e .
+pip install -r requirements-dev.txt
 python -m zero2_input_inspector
 ```
 
@@ -242,7 +242,7 @@ cd BBCC
 py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-pip install -e .
+pip install -r requirements-dev.txt
 python -m zero2_input_inspector
 ```
 
@@ -334,7 +334,7 @@ cd BBCC
 py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-pip install -e .
+pip install -r requirements-dev.txt
 python -m zero2_input_inspector
 ```
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Tuple
@@ -140,10 +141,17 @@ _TRANSLATION_KEY_ALIASES: Dict[str, str] = {
 def _translation_root_candidates() -> Tuple[Path, ...]:
     service_root = Path(__file__).resolve().parents[3]
     package_root = Path(__file__).resolve().parents[1]
-    return (
-        service_root / "assets" / "translations",
-        package_root / "assets" / "translations",
+    roots = []
+    frozen_root = getattr(sys, "_MEIPASS", "")
+    if frozen_root:
+        roots.append(Path(frozen_root) / "assets" / "translations")
+    roots.extend(
+        (
+            service_root / "assets" / "translations",
+            package_root / "assets" / "translations",
+        )
     )
+    return tuple(dict.fromkeys(roots))
 
 
 def normalize_language_code(language: str, fallback: str = "en") -> str:

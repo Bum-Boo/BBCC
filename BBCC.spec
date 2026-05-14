@@ -5,7 +5,11 @@ a = Analysis(
     ['run_bbcc.py'],
     pathex=['src'],
     binaries=[],
-    datas=[],
+    datas=[
+        ('assets/translations/*.json', 'assets/translations'),
+        ('assets/diagrams/*.svg', 'assets/diagrams'),
+        ('config/hitmaps/*.json', 'config/hitmaps'),
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

@@ -12,10 +12,20 @@ snap = svc.current_snapshot()
 
 print("=== DEVICES ===")
 
-for d in snap.devices:
-    print(f"\nDevice: {d.display_name} ({d.device_id})")
+if not snap.device_entries:
+    print("No remembered or connected devices.")
 
-    for ap in d.app_profiles:
+for entry in snap.device_entries:
+    svc.select_device(entry.device_id)
+    snap = svc.current_snapshot()
+    device = snap.selected_device_profile
+    if device is None:
+        continue
+
+    state = "connected" if entry.is_connected else "saved"
+    print(f"\nDevice: {device.display_name} ({device.device_id}) [{state}]")
+
+    for ap in device.app_profiles:
         if ap.process_name == "*":
             print("\n[YouTube PROFILE FOUND]")
             print(f"Name: {ap.name}")
