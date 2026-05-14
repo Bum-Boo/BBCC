@@ -87,6 +87,8 @@ The `Inspector` button opens live raw input values, including axes, buttons, hat
 - Browser-based media fallback behavior is part of the broader media workflow
 - Layouts and mappings are still being refined
 - Some device handling is still evolving as controller coverage expands
+- Read [Safety and Privacy](../safety-privacy.md) before using global keyboard or mouse mappings in real work.
+- Use the [Support Runbook](../support-runbook.md) and [Release Checklist](../release-checklist.md) for beta testing.
 
 ### Feedback / Contribution
 

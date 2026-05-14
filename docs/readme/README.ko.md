@@ -1,47 +1,51 @@
 # BBCC
 
-> Windows-first controller mapping for creative shortcuts, desktop navigation, and media control.
+> 창작 단축키, 데스크톱 탐색, 미디어 제어를 위한 Windows-first 컨트롤러 매핑 도구.
 
 [Overview](../../README.md) | [English](README.en.md) | [한국어](README.ko.md) | [中文](README.zh-CN.md) | [日本語](README.ja.md)
 
-BBCC는 Windows 중심의 트레이 상주형 컨트롤러 매핑 도구로, 크리에이티브 작업, 데스크톱 이동, 미디어 제어를 위한 워크플로우에 맞춰 만들어졌습니다. 메인 창을 계속 띄워 둘 필요 없이, 컨트롤러 기반 단축키를 빠르게 쓰고 싶은 사용자를 위한 도구입니다.
+BBCC는 creative workflow, desktop navigation, media control을 위해 만든 Windows-first tray-resident controller mapping tool입니다. 메인 창을 계속 띄우지 않아도 컨트롤러로 빠르게 단축키를 실행하고 싶은 사용자를 위한 도구입니다.
 
 핵심 개념은 다음과 같습니다.
 
 `Device -> App Profile -> Preset -> Button Mapping`
 
-실제로 BBCC는 컨트롤러를 기억하고, 활성 앱에 따라 동작을 전환하며, 프로필마다 여러 프리셋을 둘 수 있고, 컨트롤러 입력을 키보드 단축키나 다른 동작으로 매핑합니다.
+실제로는 컨트롤러를 기억하고, active app에 따라 동작을 바꾸며, profile마다 여러 preset을 보관하고, controller input을 keyboard shortcut이나 다른 action으로 매핑합니다.
 
-### 주요 기능
+### Key Features
 
-- 포그라운드 프로세스 이름 기준의 앱별 프로필 전환
-- 워크플로우별로 나눠 쓰는 프로필당 프리셋
-- `YouTube` / 미디어 fallback 프로필을 통한 일반 미디어 제어
-- 오프라인 저장 장치 편집 지원, 연결이 끊겨도 기억된 장치는 계속 편집 가능
-- 다국어 UI 지원
-- 테마 지원
-- 컨트롤러를 고려한 레이아웃과 다이어그램
-- 매핑을 확인하고 수정할 수 있는 Inspector와 편집기 제공
+- foreground process name 기반 app profile switching.
+- workflow별 per-profile preset 관리.
+- 일반 media control을 위한 `YouTube` / media fallback profile.
+- controller가 연결되지 않아도 remembered device를 편집할 수 있는 offline saved-device editing.
+- multilingual UI support.
+- theme support.
+- controller-aware layout과 diagram.
+- binding을 검토하고 조정하는 Inspector와 mapping editor.
 
-### 지원 컨트롤러
+### Supported Controllers
 
-현재 실사용 기준으로는 다음 장치를 중심으로 지원합니다.
+현재 실사용 기준 지원 범위는 다음 controller에 맞춰져 있습니다.
 
 - 8BitDo Zero 2
-- Xbox Controller / XInput 계열 장치
+- Xbox Controller / XInput-family devices
 
-다른 컨트롤러 모델이 필요하다면 이슈를 열어 주세요. 장치 이름, 어떤 상황인지, 기대한 동작이 무엇인지 함께 적어 주시면 추가 지원을 검토할 수 있습니다.
+다른 controller model 지원이 필요하면 issue를 열고 device name과 발생한 일, 기대한 동작을 설명해 주세요.
 
-### 일반적인 사용 예
+### Typical Use Cases
 
-- Photoshop, Illustrator 같은 크리에이티브 앱에서 사용
-- 한 손으로 컨트롤러를 조작하는 워크플로우
-- YouTube 및 기타 미디어 제어
-- 데스크톱 탐색과 단축키 처리
+- Photoshop, Illustrator 같은 creative app.
+- 한 손 controller workflow.
+- YouTube 및 기타 media control.
+- Desktop navigation과 shortcut handling.
 
-### 기본 사용법
+### Download / Release
 
-리포지토리를 클론하고, 가상 환경을 만든 뒤, 의존성을 설치하고 실행합니다.
+Windows build와 release note는 [../download-release.md](../download-release.md)를 참고하세요. 안정 release와 prerelease asset을 구분해서 안내합니다.
+
+### Basic Usage
+
+repository를 clone하고 virtual environment를 만든 뒤 dependency를 설치하고 앱을 실행합니다.
 
 ```powershell
 git clone <repository-url>
@@ -53,41 +57,43 @@ pip install -r requirements-dev.txt
 python -m zero2_input_inspector
 ```
 
-### 데모 흐름
+### Demo Walkthrough
 
-실제 데모는 연결된 `8BitDo Zero 2 gamepad`를 선택하고, 매핑 표와 raw input Inspector를 확인한 뒤 앱별 프로필 설정을 여는 흐름입니다.
+demo flow는 연결된 `8BitDo Zero 2 gamepad`를 선택하고, mapping table을 검토하고, Inspector에서 raw input을 확인한 뒤 app-profile settings를 여는 흐름입니다.
 
 1. `dist\BBCC.exe`를 실행합니다.
-2. 첫 화면에서 컨트롤러가 `Connected`로 표시되는지 확인합니다.
-3. 연결된 장치 행을 클릭합니다.
-4. `button_mappings` 표에서 버튼별 단축키와 라벨을 확인합니다.
-5. 표의 버튼 행을 선택하면 아래 `mapping_editor`에서 단축키와 라벨을 수정할 수 있습니다.
-6. 오른쪽 위 `Inspector`를 눌러 raw axes, raw buttons, raw hats, backend, GUID 값을 확인합니다.
-7. `Profile Settings`에서 fallback 프로필과 앱별 프로필의 이름, 프로세스명을 관리합니다.
+2. 첫 화면에서 controller가 `Connected`로 표시되는지 확인합니다.
+3. connected device row를 클릭합니다.
+4. `button_mappings` table에서 shortcut assignment와 label을 검토합니다.
+5. button row를 선택해 `mapping_editor`에서 shortcut과 label을 수정합니다.
+6. 오른쪽 위의 `Inspector`를 클릭해 axes, buttons, hats, backend, GUID 값을 확인합니다.
+7. `Profile Settings`를 열어 fallback 및 process name 기반 app-specific profile을 관리합니다.
 
-첫 화면에서는 컨트롤러가 `Connected`로 표시되는지 확인합니다. 저장된 장치 행을 선택하면 해당 컨트롤러의 매핑 화면으로 들어갑니다.
+첫 화면은 controller가 감지되어 연결되었는지 보여 줍니다. remembered device row를 선택하면 mapping 화면으로 이동합니다.
 
-![연결된 컨트롤러 감지](../demo-screenshots/controller-live-01-device-detected.png)
+![Connected controller detected](../demo-screenshots/controller-live-01-device-detected.png)
 
-매핑 화면에서는 현재 프로필, 버튼별 단축키, 라벨, 선택한 버튼을 수정하는 편집 영역을 확인합니다.
+mapping view는 active app profile, button binding, label, selected binding을 조정하는 editor panel을 보여 줍니다.
 
-![8BitDo Zero 2 매핑 표](../demo-screenshots/controller-live-03-connected-mapping.png)
+![8BitDo Zero 2 mapping table](../demo-screenshots/controller-live-03-connected-mapping.png)
 
-오른쪽 위 `Inspector`를 누르면 axes, buttons, hats 같은 raw input 값과 장치 GUID/백엔드 정보가 표시됩니다.
+`Inspector` button은 axes, buttons, hats, backend information, device GUID detail을 포함한 live raw input 값을 엽니다.
 
-![Raw input Inspector](../demo-screenshots/controller-live-04-inspector.png)
+![Raw input inspector](../demo-screenshots/controller-live-04-inspector.png)
 
-`Profile Settings`에서는 `YouTube` 같은 fallback 프로필이나 앱별 프로필 이름과 프로세스명을 관리합니다.
+`Profile Settings`에서는 fallback 및 app-specific profile을 이름과 process name으로 관리합니다.
 
-![앱 프로필 설정](../demo-screenshots/controller-live-05-profile-settings.png)
+![App profile settings](../demo-screenshots/controller-live-05-profile-settings.png)
 
-### 참고 사항
+### Notes
 
-- BBCC는 Windows 우선 프로젝트입니다
-- 브라우저 기반 미디어 fallback 동작은 전체 미디어 워크플로우의 일부입니다
-- 레이아웃과 매핑은 아직 계속 다듬는 중입니다
-- 컨트롤러 지원 범위가 넓어지면서 일부 장치 처리도 계속 발전하고 있습니다
+- BBCC는 Windows-first project입니다.
+- Browser-based media fallback behavior는 더 넓은 media workflow의 일부입니다.
+- Layout과 mapping은 계속 다듬는 중입니다.
+- Controller coverage가 넓어지면서 일부 device handling은 계속 발전 중입니다.
+- 실제 작업에서 global keyboard 또는 mouse mapping을 사용하기 전에 [Safety and Privacy](../safety-privacy.md)를 읽어 주세요.
+- beta testing에는 [Support Runbook](../support-runbook.md)과 [Release Checklist](../release-checklist.md)를 사용하세요.
 
-### 피드백 / 기여
+### Feedback / Contribution
 
-버그 제보와 pull request를 환영합니다. 다른 컨트롤러 모델을 지원해 달라면 이슈를 열어 장치 이름, 발생한 상황, 기대한 동작을 함께 적어 주세요.
+Bug report와 pull request를 환영합니다. 다른 controller model 지원이 필요하면 issue에 device name, 실제 동작, 기대 동작을 함께 적어 주세요.

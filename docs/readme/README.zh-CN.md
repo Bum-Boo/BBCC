@@ -1,47 +1,51 @@
 # BBCC
 
-> Windows-first controller mapping for creative shortcuts, desktop navigation, and media control.
+> 面向创作快捷键、桌面导航和媒体控制的 Windows-first 控制器映射工具。
 
 [Overview](../../README.md) | [English](README.en.md) | [한국어](README.ko.md) | [中文](README.zh-CN.md) | [日本語](README.ja.md)
 
-BBCC 是一个面向 Windows 的、常驻托盘的控制器映射工具，适合创意工作流、桌面导航和媒体控制。它面向那些想用手柄快速执行快捷操作、又不想让主窗口一直挡在眼前的用户。
+BBCC 是一个 Windows-first、常驻托盘的 controller mapping tool，面向 creative workflows、desktop navigation 和 media control。它适合希望用控制器快速触发快捷键、同时不想让主窗口挡住工作的用户。
 
 核心概念是：
 
 `Device -> App Profile -> Preset -> Button Mapping`
 
-实际使用中，BBCC 会记住你的控制器，按当前应用切换行为，在每个 Profile 里保留多个 Preset，并把控制器输入映射到键盘快捷键或其他动作。
+实际使用中，BBCC 会记住 controller，根据 active app 切换行为，让每个 profile 保留多个 preset，并把 controller input 映射到 keyboard shortcut 或其他 action。
 
-### 主要功能
+### Key Features
 
-- 按前台进程名切换应用 Profile
-- 每个 Profile 支持多个 Preset，便于分工作流使用
-- 提供 `YouTube` / 媒体 fallback Profile，用于通用媒体控制
-- 支持离线已保存设备编辑，设备断开后仍可继续使用
-- 支持多语言界面
-- 支持主题切换
-- 提供适配控制器的布局和图示
-- 提供 Inspector 和映射编辑器，方便查看与调整绑定
+- 基于 foreground process name 的 app profile switching。
+- 不同 workflow 的 per-profile presets。
+- 用于通用 media control 的 `YouTube` / media fallback profile。
+- Offline saved-device editing，即使设备断开也能编辑 remembered devices。
+- Multilingual UI support。
+- Theme support。
+- Controller-aware layouts and diagrams。
+- 用于检查和调整 binding 的 Inspector 与 mapping editor。
 
-### 支持的控制器
+### Supported Controllers
 
-当前重点支持以下设备：
+当前实际支持重点是：
 
 - 8BitDo Zero 2
-- Xbox Controller / XInput 系列设备
+- Xbox Controller / XInput-family devices
 
-如果你希望支持其他控制器型号，欢迎提交 issue，并说明设备名称、出现了什么情况，以及你期望的结果。其他控制器支持也可以通过 issue 申请和讨论。
+如果需要支持其他 controller model，请开 issue，并说明 device name、发生的情况和预期行为。
 
-### 常见用途
+### Typical Use Cases
 
-- Photoshop、Illustrator 等创意软件
-- 单手控制器工作流
-- YouTube 和其他媒体控制
-- 桌面导航与快捷操作
+- Photoshop、Illustrator 等 creative apps。
+- 单手 controller workflow。
+- YouTube 和其他 media control。
+- Desktop navigation 与 shortcut handling。
 
-### 基本用法
+### Download / Release
 
-先克隆仓库，创建虚拟环境，安装依赖，然后运行程序：
+Windows build 和 release note 请参见 [../download-release.md](../download-release.md)。该文档区分 stable release 和 prerelease asset。
+
+### Basic Usage
+
+clone repository，创建 virtual environment，安装 dependencies，然后运行应用：
 
 ```powershell
 git clone <repository-url>
@@ -53,41 +57,43 @@ pip install -r requirements-dev.txt
 python -m zero2_input_inspector
 ```
 
-### 演示流程
+### Demo Walkthrough
 
-这个演示会选择已连接的 `8BitDo Zero 2 gamepad`，查看按钮映射表，检查 Inspector 中的原始输入值，然后打开应用 Profile 设置。
+demo flow 会选择已连接的 `8BitDo Zero 2 gamepad`，查看 mapping table，在 Inspector 中检查 raw input，并打开 app-profile settings。
 
 1. 运行 `dist\BBCC.exe`。
-2. 在首屏确认控制器显示为 `Connected`。
-3. 单击已连接的设备行。
-4. 在 `button_mappings` 表中查看每个按钮的快捷键和标签。
-5. 选择某个按钮行后，可在下方的 `mapping_editor` 中修改快捷键和标签。
-6. 点击右上角的 `Inspector`，查看 raw axes、raw buttons、raw hats、backend 和 GUID。
-7. 在 `Profile Settings` 中管理 fallback Profile 以及按进程名匹配的应用 Profile。
+2. 确认第一屏显示 controller 为 `Connected`。
+3. 点击 connected device row。
+4. 在 `button_mappings` table 中查看 shortcut assignments 和 labels。
+5. 选择一个 button row，在 `mapping_editor` 中编辑 shortcut 和 label。
+6. 点击右上角的 `Inspector`，检查 axes、buttons、hats、backend 和 GUID values。
+7. 打开 `Profile Settings`，按 process name 管理 fallback 和 app-specific profiles。
 
-首屏会确认控制器已被检测并连接。选择已保存的设备行即可打开它的映射设置。
+第一屏确认 controller 已被检测并连接。选择 remembered device row 后会打开 mappings。
 
-![已连接的控制器](../demo-screenshots/controller-live-01-device-detected.png)
+![Connected controller detected](../demo-screenshots/controller-live-01-device-detected.png)
 
-映射视图会显示当前应用 Profile、按钮绑定、标签，以及用于调整所选绑定的编辑区域。
+mapping view 显示 active app profile、button bindings、labels，以及用于调整 selected binding 的 editor panel。
 
-![8BitDo Zero 2 映射表](../demo-screenshots/controller-live-03-connected-mapping.png)
+![8BitDo Zero 2 mapping table](../demo-screenshots/controller-live-03-connected-mapping.png)
 
-点击 `Inspector` 可打开实时原始输入值，包括 axes、buttons、hats、backend 信息和设备 GUID。
+`Inspector` button 会打开 live raw input values，包括 axes、buttons、hats、backend information 和 device GUID details。
 
-![原始输入 Inspector](../demo-screenshots/controller-live-04-inspector.png)
+![Raw input inspector](../demo-screenshots/controller-live-04-inspector.png)
 
-`Profile Settings` 会打开应用 Profile 编辑器，可在其中设置 fallback Profile 和特定应用 Profile 的名称与进程匹配规则。
+`Profile Settings` 会打开 app-profile editor，可按 process name 命名和匹配 fallback / app-specific profiles。
 
-![应用 Profile 设置](../demo-screenshots/controller-live-05-profile-settings.png)
+![App profile settings](../demo-screenshots/controller-live-05-profile-settings.png)
 
-### 说明
+### Notes
 
-- BBCC 是一个 Windows 优先项目
-- 基于浏览器的媒体 fallback 行为属于整体媒体工作流的一部分
-- 布局和映射仍在持续打磨中
-- 随着设备支持范围扩展，一些设备处理逻辑也还在演进
+- BBCC 是 Windows-first project。
+- Browser-based media fallback behavior 是更广泛 media workflow 的一部分。
+- Layouts 和 mappings 仍在完善。
+- 随着 controller coverage 扩展，部分 device handling 仍在演进。
+- 在真实工作中使用 global keyboard 或 mouse mappings 前，请阅读 [Safety and Privacy](../safety-privacy.md)。
+- beta testing 请使用 [Support Runbook](../support-runbook.md) 和 [Release Checklist](../release-checklist.md)。
 
-### 反馈 / 贡献
+### Feedback / Contribution
 
-欢迎提交 issue 和 pull request。如果你想要支持其他控制器型号，请在 issue 中提供设备名称、发生了什么、以及你期望看到什么。
+欢迎 bug reports 和 pull requests。如果需要支持其他 controller model，请开 issue，并包含 device name、实际发生的情况和预期行为。
