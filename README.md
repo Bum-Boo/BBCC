@@ -53,6 +53,34 @@ pip install -e .
 python -m zero2_input_inspector
 ```
 
+### Demo Walkthrough
+
+The demo flow selects the connected `8BitDo Zero 2 gamepad`, reviews the mapping table, checks raw input in Inspector, and opens app-profile settings.
+
+1. Run `dist\BBCC.exe`.
+2. Confirm that the controller is shown as `Connected` on the first screen.
+3. Click the connected device row.
+4. Review shortcut assignments and labels in the `button_mappings` table.
+5. Select a button row to edit its shortcut and label in `mapping_editor`.
+6. Click `Inspector` in the top-right area to check raw axes, buttons, hats, backend, and GUID values.
+7. Open `Profile Settings` to manage fallback and app-specific profiles by process name.
+
+The first screen confirms that the controller is detected and connected. Select the remembered device row to open its mappings.
+
+![Connected controller detected](docs/demo-screenshots/controller-live-01-device-detected.png)
+
+The mapping view shows the active app profile, button bindings, labels, and the editor panel used to adjust a selected binding.
+
+![8BitDo Zero 2 mapping table](docs/demo-screenshots/controller-live-03-connected-mapping.png)
+
+The `Inspector` button opens live raw input values, including axes, buttons, hats, backend information, and device GUID details.
+
+![Raw input inspector](docs/demo-screenshots/controller-live-04-inspector.png)
+
+`Profile Settings` opens the app-profile editor, where fallback and app-specific profiles can be named and matched by process name.
+
+![App profile settings](docs/demo-screenshots/controller-live-05-profile-settings.png)
+
 ### Notes
 
 - BBCC is a Windows-first project
@@ -116,6 +144,34 @@ python -m pip install --upgrade pip
 pip install -e .
 python -m zero2_input_inspector
 ```
+
+### 데모 흐름
+
+실제 데모는 연결된 `8BitDo Zero 2 gamepad`를 선택하고, 매핑 표와 raw input Inspector를 확인한 뒤 앱별 프로필 설정을 여는 흐름입니다.
+
+1. `dist\BBCC.exe`를 실행합니다.
+2. 첫 화면에서 컨트롤러가 `Connected`로 표시되는지 확인합니다.
+3. 연결된 장치 행을 클릭합니다.
+4. `button_mappings` 표에서 버튼별 단축키와 라벨을 확인합니다.
+5. 표의 버튼 행을 선택하면 아래 `mapping_editor`에서 단축키와 라벨을 수정할 수 있습니다.
+6. 오른쪽 위 `Inspector`를 눌러 raw axes, raw buttons, raw hats, backend, GUID 값을 확인합니다.
+7. `Profile Settings`에서 fallback 프로필과 앱별 프로필의 이름, 프로세스명을 관리합니다.
+
+첫 화면에서는 컨트롤러가 `Connected`로 표시되는지 확인합니다. 저장된 장치 행을 선택하면 해당 컨트롤러의 매핑 화면으로 들어갑니다.
+
+![연결된 컨트롤러 감지](docs/demo-screenshots/controller-live-01-device-detected.png)
+
+매핑 화면에서는 현재 프로필, 버튼별 단축키, 라벨, 선택한 버튼을 수정하는 편집 영역을 확인합니다.
+
+![8BitDo Zero 2 매핑 표](docs/demo-screenshots/controller-live-03-connected-mapping.png)
+
+오른쪽 위 `Inspector`를 누르면 axes, buttons, hats 같은 raw input 값과 장치 GUID/백엔드 정보가 표시됩니다.
+
+![Raw input Inspector](docs/demo-screenshots/controller-live-04-inspector.png)
+
+`Profile Settings`에서는 `YouTube` 같은 fallback 프로필이나 앱별 프로필 이름과 프로세스명을 관리합니다.
+
+![앱 프로필 설정](docs/demo-screenshots/controller-live-05-profile-settings.png)
 
 ### 참고 사항
 
@@ -181,6 +237,34 @@ pip install -e .
 python -m zero2_input_inspector
 ```
 
+### 演示流程
+
+这个演示会选择已连接的 `8BitDo Zero 2 gamepad`，查看按钮映射表，检查 Inspector 中的原始输入值，然后打开应用 Profile 设置。
+
+1. 运行 `dist\BBCC.exe`。
+2. 在首屏确认控制器显示为 `Connected`。
+3. 单击已连接的设备行。
+4. 在 `button_mappings` 表中查看每个按钮的快捷键和标签。
+5. 选择某个按钮行后，可在下方的 `mapping_editor` 中修改快捷键和标签。
+6. 点击右上角的 `Inspector`，查看 raw axes、raw buttons、raw hats、backend 和 GUID。
+7. 在 `Profile Settings` 中管理 fallback Profile 以及按进程名匹配的应用 Profile。
+
+首屏会确认控制器已被检测并连接。选择已保存的设备行即可打开它的映射设置。
+
+![已连接的控制器](docs/demo-screenshots/controller-live-01-device-detected.png)
+
+映射视图会显示当前应用 Profile、按钮绑定、标签，以及用于调整所选绑定的编辑区域。
+
+![8BitDo Zero 2 映射表](docs/demo-screenshots/controller-live-03-connected-mapping.png)
+
+点击 `Inspector` 可打开实时原始输入值，包括 axes、buttons、hats、backend 信息和设备 GUID。
+
+![原始输入 Inspector](docs/demo-screenshots/controller-live-04-inspector.png)
+
+`Profile Settings` 会打开应用 Profile 编辑器，可在其中设置 fallback Profile 和特定应用 Profile 的名称与进程匹配规则。
+
+![应用 Profile 设置](docs/demo-screenshots/controller-live-05-profile-settings.png)
+
 ### 说明
 
 - BBCC 是一个 Windows 优先项目
@@ -213,7 +297,7 @@ BBCC は、コントローラーを記憶し、アクティブなアプリに応
 - 多言語 UI 対応
 - テーマ対応
 - コントローラーを意識したレイアウトと図示
-- 绑定内容を確認・調整できる Inspector とマッピング編集機能
+- 割り当て内容を確認・調整できる Inspector とマッピング編集機能
 
 ### 対応コントローラー
 
@@ -245,6 +329,34 @@ pip install -e .
 python -m zero2_input_inspector
 ```
 
+### デモ手順
+
+このデモでは、接続された `8BitDo Zero 2 gamepad` を選択し、マッピング表、Inspector の raw input、アプリ別 Profile 設定を順番に確認します。
+
+1. `dist\BBCC.exe` を実行します。
+2. 最初の画面でコントローラーが `Connected` と表示されていることを確認します。
+3. 接続済みデバイスの行をクリックします。
+4. `button_mappings` 表で、ボタンごとのショートカットとラベルを確認します。
+5. 表のボタン行を選択すると、下の `mapping_editor` でショートカットとラベルを編集できます。
+6. 右上の `Inspector` をクリックし、raw axes、raw buttons、raw hats、backend、GUID の値を確認します。
+7. `Profile Settings` で、fallback Profile とアプリ別 Profile の名前やプロセス名を管理します。
+
+最初の画面では、コントローラーが検出されて接続済みであることを確認します。保存済みデバイスの行を選択すると、そのデバイスのマッピング画面が開きます。
+
+![接続されたコントローラー](docs/demo-screenshots/controller-live-01-device-detected.png)
+
+マッピング画面では、現在のアプリ Profile、ボタン割り当て、ラベル、選択した割り当てを編集する領域を確認できます。
+
+![8BitDo Zero 2 マッピング表](docs/demo-screenshots/controller-live-03-connected-mapping.png)
+
+`Inspector` を開くと、axes、buttons、hats などの raw input 値と、backend 情報、デバイス GUID が表示されます。
+
+![Raw input Inspector](docs/demo-screenshots/controller-live-04-inspector.png)
+
+`Profile Settings` では、`YouTube` のような fallback Profile やアプリ別 Profile の名前、プロセス名を管理できます。
+
+![アプリ Profile 設定](docs/demo-screenshots/controller-live-05-profile-settings.png)
+
 ### 補足
 
 - BBCC は Windows 優先のプロジェクトです
@@ -255,30 +367,3 @@ python -m zero2_input_inspector
 ### フィードバック / 貢献
 
 issue や pull request は歓迎します。別のコントローラーモデルの対応を希望する場合は、issue にデバイス名、起きたこと、期待した動作を書いてください。
-## Demo Walkthrough
-
-실제 데모는 연결된 `8BitDo Zero 2 gamepad`를 선택하고, 매핑 표와 raw input Inspector를 확인하는 흐름입니다.
-
-1. `dist\BBCC.exe`를 실행합니다.
-2. 첫 화면에서 컨트롤러가 `connected`로 표시되는지 확인합니다.
-3. 연결된 장치 행을 클릭합니다.
-4. `button_mappings` 표에서 버튼별 단축키와 라벨을 확인합니다.
-5. 표의 버튼 행을 선택하면 아래 `mapping_editor`에서 단축키와 라벨을 수정할 수 있습니다.
-6. 오른쪽 위 `inspector`를 눌러 raw axes, raw buttons, raw hats 값을 확인합니다.
-7. `profile_settings`에서 Photoshop, Illustrator 같은 앱별 프로필과 프로세스명을 관리합니다.
-
-첫 화면에서는 컨트롤러가 `Connected`로 표시되는지 확인합니다. 저장된 장치 행을 선택하면 해당 컨트롤러의 매핑 화면으로 들어갑니다.
-
-![Connected controller detected](docs/demo-screenshots/controller-live-01-device-detected.png)
-
-매핑 화면에서는 현재 프로필, 버튼별 단축키, 라벨, 선택한 버튼을 수정하는 편집 영역을 확인합니다.
-
-![8BitDo Zero 2 mapping table](docs/demo-screenshots/controller-live-03-connected-mapping.png)
-
-오른쪽 위 `Inspector`를 누르면 axes, buttons, hats 같은 raw input 값과 장치 GUID/백엔드 정보가 표시됩니다.
-
-![Raw input inspector](docs/demo-screenshots/controller-live-04-inspector.png)
-
-`Profile Settings`에서는 `YouTube` 같은 fallback 프로필이나 앱별 프로필 이름과 프로세스명을 관리합니다.
-
-![App profile settings](docs/demo-screenshots/controller-live-05-profile-settings.png)
