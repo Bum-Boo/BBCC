@@ -2,7 +2,7 @@
 
 > Windows-first controller mapping for creative shortcuts, desktop navigation, and media control.
 
-[Overview](README.md) | [English](docs/readme/README.en.md) | [한국어](docs/readme/README.ko.md) | [中文](docs/readme/README.zh-CN.md) | [日本語](docs/readme/README.ja.md)
+[Overview](README.md) | [English](docs/readme/README.en.md) | [Korean](docs/readme/README.ko.md) | [Chinese](docs/readme/README.zh-CN.md) | [Japanese](docs/readme/README.ja.md)
 
 | Area | Detail |
 |---|---|
@@ -10,6 +10,22 @@
 | Core model | `Device -> App Profile -> Preset -> Button Mapping` |
 | Practical controller focus | 8BitDo Zero 2 and Xbox/XInput-family devices |
 | Main workflows | Creative apps, one-handed shortcuts, media control, desktop navigation |
+
+## Download / Release
+
+Latest stable release: [BBCC v0.1.1](https://github.com/Bum-Boo/BBCC/releases/tag/v0.1.1)
+
+Windows ZIP:
+
+- [BBCC-win64-v0.1.1.zip](https://github.com/Bum-Boo/BBCC/releases/download/v0.1.1/BBCC-win64-v0.1.1.zip)
+
+Current prerelease: [BBCC v0.1.2](https://github.com/Bum-Boo/BBCC/releases/tag/v0.1.2)
+
+Prerelease Windows ZIP:
+
+- [BBCC-win64-v0.1.2.zip](https://github.com/Bum-Boo/BBCC/releases/download/v0.1.2/BBCC-win64-v0.1.2.zip)
+
+Release artifacts should be distributed through GitHub Releases, not committed into the source tree.
 
 ## Preview
 
@@ -72,9 +88,16 @@ python -m zero2_input_inspector
 ## Documentation
 
 - [English README](docs/readme/README.en.md)
-- [한국어 README](docs/readme/README.ko.md)
-- [中文 README](docs/readme/README.zh-CN.md)
-- [日本語 README](docs/readme/README.ja.md)
+- [Korean README](docs/readme/README.ko.md)
+- [Chinese README](docs/readme/README.zh-CN.md)
+- [Japanese README](docs/readme/README.ja.md)
+- [Download and release notes](docs/download-release.md)
+- [Safety and Privacy](docs/safety-privacy.md)
+- [Support Runbook](docs/support-runbook.md)
+- [Release Checklist](docs/release-checklist.md)
+- [Third-Party Notices](THIRD_PARTY_NOTICES.md)
+- [Portfolio case study](docs/portfolio-case-study.md)
+- [GitHub metadata note](docs/github-metadata.md)
 
 ## Notes
 
