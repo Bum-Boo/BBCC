@@ -257,7 +257,7 @@ python -m zero2_input_inspector
 issue や pull request は歓迎します。別のコントローラーモデルの対応を希望する場合は、issue にデバイス名、起きたこと、期待した動作を書いてください。
 ## Demo Walkthrough
 
-실제 데모는 연결된 `Bluetooth Wireless Controller`를 선택하고, 8BitDo Zero 2 매핑 표와 raw input Inspector를 확인하는 흐름입니다.
+실제 데모는 연결된 `8BitDo Zero 2 gamepad`를 선택하고, 매핑 표와 raw input Inspector를 확인하는 흐름입니다.
 
 1. `dist\BBCC.exe`를 실행합니다.
 2. 첫 화면에서 컨트롤러가 `connected`로 표시되는지 확인합니다.
@@ -267,10 +267,18 @@ issue や pull request は歓迎します。別のコントローラーモデル
 6. 오른쪽 위 `inspector`를 눌러 raw axes, raw buttons, raw hats 값을 확인합니다.
 7. `profile_settings`에서 Photoshop, Illustrator 같은 앱별 프로필과 프로세스명을 관리합니다.
 
+첫 화면에서는 컨트롤러가 `Connected`로 표시되는지 확인합니다. 저장된 장치 행을 선택하면 해당 컨트롤러의 매핑 화면으로 들어갑니다.
+
 ![Connected controller detected](docs/demo-screenshots/controller-live-01-device-detected.png)
+
+매핑 화면에서는 현재 프로필, 버튼별 단축키, 라벨, 선택한 버튼을 수정하는 편집 영역을 확인합니다.
 
 ![8BitDo Zero 2 mapping table](docs/demo-screenshots/controller-live-03-connected-mapping.png)
 
+오른쪽 위 `Inspector`를 누르면 axes, buttons, hats 같은 raw input 값과 장치 GUID/백엔드 정보가 표시됩니다.
+
 ![Raw input inspector](docs/demo-screenshots/controller-live-04-inspector.png)
+
+`Profile Settings`에서는 `YouTube` 같은 fallback 프로필이나 앱별 프로필 이름과 프로세스명을 관리합니다.
 
 ![App profile settings](docs/demo-screenshots/controller-live-05-profile-settings.png)
