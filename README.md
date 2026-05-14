@@ -1,6 +1,15 @@
+# BBCC
+
+> Windows-first controller mapping for creative shortcuts, desktop navigation, and media control.
+
 [English](#english) | [한국어](#한국어) | [中文](#中文) | [日本語](#日本語)
 
-# BBCC
+| Area | Detail |
+|---|---|
+| Platform | Windows desktop |
+| Core model | `Device -> App Profile -> Preset -> Button Mapping` |
+| Practical controller focus | 8BitDo Zero 2 and Xbox/XInput-family devices |
+| Main workflows | Creative apps, one-handed shortcuts, media control, desktop navigation |
 
 ## English
 
