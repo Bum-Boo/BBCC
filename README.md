@@ -2,39 +2,73 @@
 
 > Windows-first controller mapping for creative shortcuts, desktop navigation, and media control.
 
-[Overview](README.md) | [English](docs/readme/README.en.md) | [Korean](docs/readme/README.ko.md) | [Chinese](docs/readme/README.zh-CN.md) | [Japanese](docs/readme/README.ja.md)
+[English](README.md) | [한국어](docs/README.ko.md) | [日本語](docs/README.ja.md) | [中文](docs/README.zh-CN.md)
 
-| Area | Detail |
-|---|---|
-| Platform | Windows desktop |
-| Core model | `Device -> App Profile -> Preset -> Button Mapping` |
-| Practical controller focus | 8BitDo Zero 2 and Xbox/XInput-family devices |
-| Main workflows | Creative apps, one-handed shortcuts, media control, desktop navigation |
+BBCC is a Windows-first, tray-resident controller mapping tool for creative workflows, desktop navigation, and media control. It is built for people who want quick controller-driven shortcuts without keeping the main window in the way.
 
-## Download / Release
+The core concept is:
 
-Latest stable release: [BBCC v0.1.1](https://github.com/Bum-Boo/BBCC/releases/tag/v0.1.1)
+`Device -> App Profile -> Preset -> Button Mapping`
 
-Windows ZIP:
+In practice, BBCC remembers your controller, switches behavior by active app, lets you keep multiple presets per profile, and maps controller inputs to keyboard shortcuts or other actions.
 
-- [BBCC-win64-v0.1.1.zip](https://github.com/Bum-Boo/BBCC/releases/download/v0.1.1/BBCC-win64-v0.1.1.zip)
+## Safety and privacy
 
-Current prerelease: [BBCC v0.1.2](https://github.com/Bum-Boo/BBCC/releases/tag/v0.1.2)
+- BBCC runs locally and watches the foreground process name so it can select an app profile.
+- Mappings can emit global keyboard or mouse input. Test a new profile in a harmless app before using it in creative work, games, password fields, or any workflow where an accidental shortcut could lose data.
+- Stop or exit BBCC before entering sensitive information if a mapping could fire unexpectedly.
+- Configuration is stored locally; remove personal process names and shortcuts before sharing logs, screenshots, or configuration files.
+- Read [Safety and Privacy](docs/safety-privacy.md) for the full operating boundary.
 
-Prerelease Windows ZIP:
+## Requirements
 
-- [BBCC-win64-v0.1.2.zip](https://github.com/Bum-Boo/BBCC/releases/download/v0.1.2/BBCC-win64-v0.1.2.zip)
+- Windows
+- Python 3.8 or newer for source installation
+- A supported controller; current practical coverage focuses on 8BitDo Zero 2 and Xbox/XInput-family devices
+- Dependencies from `requirements-dev.txt` for development and local tests
 
-Release artifacts should be distributed through GitHub Releases, not committed into the source tree.
+### Key Features
 
-## Preview
+- App-based profile switching by foreground process name
+- Per-profile presets for different workflows
+- `YouTube` / media fallback profile for general media control
+- Offline saved-device editing, so remembered devices stay usable even when disconnected
+- Multilingual UI support
+- Theme support
+- Controller-aware layouts and diagrams
+- Inspector and mapping editor for reviewing and adjusting bindings
 
-The connected controller view shows the remembered device, mapping table, Inspector, and profile settings flow.
+### Supported Controllers
 
-![Connected controller detected](docs/demo-screenshots/controller-live-01-device-detected.png)
+Current practical support focuses on:
 
-<details>
-<summary>View full demo walkthrough</summary>
+- 8BitDo Zero 2
+- Xbox Controller / XInput-family devices
+
+If you want support for another controller model, please open an issue and describe the device. Additional controller support can be requested and discussed there.
+
+### Typical Use Cases
+
+- Creative apps such as Photoshop and Illustrator
+- One-handed controller workflows
+- YouTube and other media control
+- Desktop navigation and shortcut handling
+
+### Basic Usage
+
+Clone the repository, create a virtual environment, install dependencies, and run the app:
+
+```powershell
+git clone https://github.com/Bum-Boo/BBCC.git
+cd BBCC
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements-dev.txt
+python -m zero2_input_inspector
+```
+
+### Demo Walkthrough
 
 The demo flow selects the connected `8BitDo Zero 2 gamepad`, reviews the mapping table, checks raw input in Inspector, and opens app-profile settings.
 
@@ -62,43 +96,19 @@ The `Inspector` button opens live raw input values, including axes, buttons, hat
 
 ![App profile settings](docs/demo-screenshots/controller-live-05-profile-settings.png)
 
-### Notes
+### Known limitations
 
 - BBCC is a Windows-first project
 - Browser-based media fallback behavior is part of the broader media workflow
 - Layouts and mappings are still being refined
 - Some device handling is still evolving as controller coverage expands
+- Read [Safety and Privacy](docs/safety-privacy.md) before using global keyboard or mouse mappings in real work.
+- Use the [Support Runbook](docs/support-runbook.md) and [Release Checklist](docs/release-checklist.md) for beta testing.
 
 ### Feedback / Contribution
 
 Bug reports and pull requests are welcome. If you want support for another controller model, please open an issue and include the device name, what happened, and what you expected.
 
-</details>
+## Attribution
 
-## Quick Start
-
-```powershell
-py -3 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements-dev.txt
-python -m zero2_input_inspector
-```
-
-## Documentation
-
-- [English README](docs/readme/README.en.md)
-- [Korean README](docs/readme/README.ko.md)
-- [Chinese README](docs/readme/README.zh-CN.md)
-- [Japanese README](docs/readme/README.ja.md)
-- [Download and release notes](docs/download-release.md)
-- [Safety and Privacy](docs/safety-privacy.md)
-- [Support Runbook](docs/support-runbook.md)
-- [Release Checklist](docs/release-checklist.md)
-- [Third-Party Notices](THIRD_PARTY_NOTICES.md)
-- [Portfolio case study](docs/portfolio-case-study.md)
-- [GitHub metadata note](docs/github-metadata.md)
-
-## Notes
-
-This overview is intentionally short. Detailed setup, architecture, limitations, and localized walkthroughs live in the linked README files.
+If you share a fork, demo, article, or derivative, a courteous mention of [@Bum-Boo](https://github.com/Bum-Boo) and the original repository is appreciated. This is a request for credit, not an additional license condition or restriction.
