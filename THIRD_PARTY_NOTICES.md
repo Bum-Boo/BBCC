@@ -4,7 +4,7 @@ This file is a release-readiness inventory, not legal advice. Review it before d
 
 ## Project License
 
-The project license has not been selected in this repository. Choose and add a `LICENSE` file before public or commercial distribution.
+BBCC is licensed under the GNU General Public License v3.0 (see `LICENSE`). GPL-3.0 was chosen because the Windows build bundles PyQt5, which is distributed under GPL v3.
 
 ## Runtime Dependencies
 

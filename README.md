@@ -116,3 +116,7 @@ Bug reports and pull requests are welcome. If you want support for another contr
 ## Attribution
 
 If you share a fork, demo, article, or derivative, a courteous mention of [@Bum-Boo](https://github.com/Bum-Boo) and the original repository is appreciated. This is a request for credit, not an additional license condition or restriction.
+
+## License
+
+[GPL-3.0](LICENSE). The Windows build bundles PyQt5 (GPL v3); see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for every dependency.
