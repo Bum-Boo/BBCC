@@ -4,6 +4,10 @@
 
 [English](README.md) | [한국어](docs/README.ko.md) | [日本語](docs/README.ja.md) | [中文](docs/README.zh-CN.md)
 
+![BBCC with an 8BitDo Zero 2 connected and its YouTube button mappings](docs/demo-screenshots/controller-live-03-connected-mapping.png)
+
+**[Download for Windows](https://github.com/Bum-Boo/BBCC/releases/tag/v0.1.1)** · [How to use](#basic-usage)
+
 BBCC is a Windows-first, tray-resident controller mapping tool for creative workflows, desktop navigation, and media control. It is built for people who want quick controller-driven shortcuts without keeping the main window in the way.
 
 The core concept is:
